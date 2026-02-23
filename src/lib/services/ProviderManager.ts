@@ -137,10 +137,12 @@ export class ProviderManager {
         signal,
         providerContext,
       });
-    } catch (error) {
-      console.error('Error creating posts function:', error);
-      console.error('Module content:', getPostsModule);
-      throw new Error(`Invalid posts module for provider: ${providerValue}`);
+    } catch (error: any) {
+      console.error('Error in posts function:', error);
+      // Re-throw the original error message if it exists, otherwise use generic message
+      const errorMessage =
+        error?.message || `Failed to get posts from provider: ${providerValue}`;
+      throw new Error(errorMessage);
     }
   };
   getSearchPosts = async ({
@@ -178,10 +180,13 @@ export class ProviderManager {
         signal,
         providerContext,
       });
-    } catch (error) {
-      console.error('Error creating search posts function:', error);
-      console.error('Module content:', getPostsModule);
-      throw new Error(`Invalid posts module for provider: ${providerValue}`);
+    } catch (error: any) {
+      console.error('Error in search posts function:', error);
+      // Re-throw the original error message if it exists, otherwise use generic message
+      const errorMessage =
+        error?.message ||
+        `Failed to search posts from provider: ${providerValue}`;
+      throw new Error(errorMessage);
     }
   };
   getMetaData = async ({
@@ -211,10 +216,12 @@ export class ProviderManager {
         provider,
         providerContext,
       });
-    } catch (error) {
-      console.error('Error creating meta data function:', error);
-      console.error('Module content:', getMetaDataModule);
-      throw new Error(`Invalid meta data module for provider: ${provider}`);
+    } catch (error: any) {
+      console.error('Error in meta data function:', error);
+      // Re-throw the original error message if it exists, otherwise use generic message
+      const errorMessage =
+        error?.message || `Failed to get metadata from provider: ${provider}`;
+      throw new Error(errorMessage);
     }
   };
   getStream = async ({
@@ -250,10 +257,13 @@ export class ProviderManager {
         signal,
         providerContext,
       });
-    } catch (error) {
-      console.error('Error creating stream function:', error);
-      console.error('Module content:', getStreamModule);
-      throw new Error(`Invalid stream module for provider: ${providerValue}`);
+    } catch (error: any) {
+      console.error('Error in stream function:', error);
+      // Re-throw the original error message if it exists, otherwise use generic message
+      const errorMessage =
+        error?.message ||
+        `Failed to get stream from provider: ${providerValue}`;
+      throw new Error(errorMessage);
     }
   };
   getEpisodes = async ({
@@ -283,16 +293,14 @@ export class ProviderManager {
         url,
         providerContext,
       });
-    } catch (error) {
-      console.error('Error creating episode links function:', error);
-      console.error('Module content:', getEpisodeLinksModule);
-      ToastAndroid.show(
-        `Invalid episode links module for provider: ${providerValue}`,
-        ToastAndroid.LONG,
-      );
-      throw new Error(
-        `Invalid episode links module for provider: ${providerValue}`,
-      );
+    } catch (error: any) {
+      console.error('Error in episodes function:', error);
+      // Re-throw the original error message if it exists, otherwise use generic message
+      const errorMessage =
+        error?.message ||
+        `Failed to get episodes from provider: ${providerValue}`;
+      ToastAndroid.show(errorMessage, ToastAndroid.LONG);
+      throw new Error(errorMessage);
     }
   };
 }

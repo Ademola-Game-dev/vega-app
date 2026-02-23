@@ -92,9 +92,11 @@ export const useStreamData = () => {
       });
 
       return stream || [];
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching streams:', error);
-      throw `Failed to fetch streams for ${type} at ${link} : ${error}`;
+      const errorMessage =
+        error?.message || error?.toString() || 'Failed to fetch streams';
+      throw new Error(errorMessage);
     }
   };
 

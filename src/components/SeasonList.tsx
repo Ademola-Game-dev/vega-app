@@ -272,7 +272,10 @@ const SeasonList: React.FC<SeasonListProps> = ({
         const streams = await fetchStreams(link, type, providerValue);
 
         if (!streams || streams.length === 0) {
-          ToastAndroid.show('No stream available', ToastAndroid.SHORT);
+          ToastAndroid.show(
+            'No streams available from provider',
+            ToastAndroid.SHORT,
+          );
           return;
         }
 
@@ -286,9 +289,10 @@ const SeasonList: React.FC<SeasonListProps> = ({
           `Found ${streams.length} servers`,
           ToastAndroid.SHORT,
         );
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching streams:', error);
-        ToastAndroid.show('Failed to load streams', ToastAndroid.SHORT);
+        const errorMessage = error?.message || 'Failed to load streams';
+        ToastAndroid.show(errorMessage, ToastAndroid.SHORT);
       } finally {
         setVlcLoading(false);
         setIsLoadingStreams(false);
@@ -676,7 +680,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
     return (
       <View className="p-4">
         <Text className="text-red-500 text-center">
-          Failed to load episodes. Please try again.
+          {episodeError.message || 'Failed to load episodes. Please try again.'}
         </Text>
         <TouchableOpacity
           className="mt-2 bg-red-600 p-2 rounded-md"

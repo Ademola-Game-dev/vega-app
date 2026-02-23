@@ -26,6 +26,7 @@ type Props = {
   setModal: (value: boolean) => void;
   onPressVideo: (item: any) => void;
   onPressSubs: (item: any) => void;
+  error?: string | null;
 };
 const DownloadBottomSheet = ({
   data,
@@ -35,6 +36,7 @@ const DownloadBottomSheet = ({
   title,
   onPressSubs,
   onPressVideo,
+  error,
 }: Props) => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const {primary} = useThemeStore(state => state);
@@ -117,73 +119,78 @@ const DownloadBottomSheet = ({
                       />
                     ))
                   : activeTab === 1
-                  ? data.map(item => (
-                      <TouchableOpacity
-                        className="p-2 bg-white/30 rounded-md my-1"
-                        key={item.link}
-                        onLongPress={() => {
-                          if (settingsStorage.isHapticFeedbackEnabled()) {
-                            RNReactNativeHapticFeedback.trigger('effectTick', {
-                              enableVibrateFallback: true,
-                              ignoreAndroidSystemSettings: false,
-                            });
-                          }
-                          Clipboard.setString(item.link);
-                          ToastAndroid.show('Link copied', ToastAndroid.SHORT);
-                        }}
-                        onPress={() => {
-                          onPressVideo(item);
-                          bottomSheetRef.current?.close();
-                        }}>
-                        <Text style={{color: 'white'}}>{item.server}</Text>
-                      </TouchableOpacity>
-                    ))
-                  : subtitle.length > 0
-                  ? subtitle.map(
-                      subs =>
-                        subs?.map(item => (
-                          <TouchableOpacity
-                            className="p-2 bg-white/30 rounded-md my-1"
-                            key={item.uri}
-                            onLongPress={() => {
-                              if (settingsStorage.isHapticFeedbackEnabled()) {
-                                RNReactNativeHapticFeedback.trigger(
-                                  'effectTick',
-                                  {
-                                    enableVibrateFallback: true,
-                                    ignoreAndroidSystemSettings: false,
-                                  },
-                                );
-                              }
-                              Clipboard.setString(item.uri);
-                              ToastAndroid.show(
-                                'Link copied',
-                                ToastAndroid.SHORT,
+                    ? data.map(item => (
+                        <TouchableOpacity
+                          className="p-2 bg-white/30 rounded-md my-1"
+                          key={item.link}
+                          onLongPress={() => {
+                            if (settingsStorage.isHapticFeedbackEnabled()) {
+                              RNReactNativeHapticFeedback.trigger(
+                                'effectTick',
+                                {
+                                  enableVibrateFallback: true,
+                                  ignoreAndroidSystemSettings: false,
+                                },
                               );
-                            }}
-                            onPress={() => {
-                              onPressSubs({
-                                server: 'Subtitles',
-                                link: item.uri,
-                                type:
-                                  item.type === TextTrackType.VTT
-                                    ? 'vtt'
-                                    : 'srt',
-                                title: item.title,
-                              });
-                              bottomSheetRef.current?.close();
-                            }}>
-                            <Text style={{color: 'white'}}>
-                              {item.language}
-                              {' - '} {item.title}
-                            </Text>
-                          </TouchableOpacity>
-                        )),
-                    )
-                  : null}
+                            }
+                            Clipboard.setString(item.link);
+                            ToastAndroid.show(
+                              'Link copied',
+                              ToastAndroid.SHORT,
+                            );
+                          }}
+                          onPress={() => {
+                            onPressVideo(item);
+                            bottomSheetRef.current?.close();
+                          }}>
+                          <Text style={{color: 'white'}}>{item.server}</Text>
+                        </TouchableOpacity>
+                      ))
+                    : subtitle.length > 0
+                      ? subtitle.map(subs =>
+                          subs?.map(item => (
+                            <TouchableOpacity
+                              className="p-2 bg-white/30 rounded-md my-1"
+                              key={item.uri}
+                              onLongPress={() => {
+                                if (settingsStorage.isHapticFeedbackEnabled()) {
+                                  RNReactNativeHapticFeedback.trigger(
+                                    'effectTick',
+                                    {
+                                      enableVibrateFallback: true,
+                                      ignoreAndroidSystemSettings: false,
+                                    },
+                                  );
+                                }
+                                Clipboard.setString(item.uri);
+                                ToastAndroid.show(
+                                  'Link copied',
+                                  ToastAndroid.SHORT,
+                                );
+                              }}
+                              onPress={() => {
+                                onPressSubs({
+                                  server: 'Subtitles',
+                                  link: item.uri,
+                                  type:
+                                    item.type === TextTrackType.VTT
+                                      ? 'vtt'
+                                      : 'srt',
+                                  title: item.title,
+                                });
+                                bottomSheetRef.current?.close();
+                              }}>
+                              <Text style={{color: 'white'}}>
+                                {item.language}
+                                {' - '} {item.title}
+                              </Text>
+                            </TouchableOpacity>
+                          )),
+                        )
+                      : null}
                 {data.length === 0 && !loading && (
                   <Text className="text-red-500 text-lg text-center">
-                    No server found
+                    {error || 'No server found'}
                   </Text>
                 )}
               </BottomSheetScrollView>

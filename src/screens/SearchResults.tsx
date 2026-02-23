@@ -36,6 +36,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
         name: item.display_name,
         value: item.value,
         isLoading: true,
+        error: undefined as string | undefined, // explicitly type it
       })),
     [installedProviders],
   );
@@ -58,7 +59,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
   }, []);
 
   const updateLoading = useCallback(
-    (value: string, updates: Partial<{isLoading: boolean; error: boolean}>) => {
+    (value: string, updates: Partial<{isLoading: boolean; error: string}>) => {
       setLoading(prev =>
         prev.map(i => (i.value === value ? {...i, ...updates} : i)),
       );
@@ -127,14 +128,15 @@ const SearchResults = ({route}: Props): React.ReactElement => {
             }
 
             updateLoading(item.value, {isLoading: false});
-          } catch (error) {
+          } catch (error: any) {
             if (signal.aborted) return;
 
             console.error(
               `Error fetching data for ${item.display_name}:`,
               error,
             );
-            updateLoading(item.value, {isLoading: false, error: true});
+            const errorMessage = error?.message || 'Failed to search';
+            updateLoading(item.value, {isLoading: false, error: errorMessage});
           }
         })();
 
@@ -172,6 +174,7 @@ const SearchResults = ({route}: Props): React.ReactElement => {
           filter={route.params.filter}
           providerValue={item.value}
           isSearch={true}
+          error={loadingState?.error}
         />
       );
     },

@@ -119,7 +119,8 @@ export const useStream = ({
   useEffect(() => {
     if (error) {
       console.error('Stream fetch error:', error);
-      ToastAndroid.show('No stream found, try again later', ToastAndroid.SHORT);
+      const errorMessage = error?.message || 'No stream found, try again later';
+      ToastAndroid.show(errorMessage, ToastAndroid.SHORT);
     }
   }, [error]);
 

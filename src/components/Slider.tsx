@@ -18,6 +18,7 @@ const Slider = ({
   filter,
   providerValue,
   isSearch = false,
+  error,
 }: {
   isLoading: boolean;
   title: string;
@@ -25,6 +26,7 @@ const Slider = ({
   filter: string;
   providerValue?: string;
   isSearch?: boolean;
+  error?: string;
 }): React.ReactElement => {
   const {provider} = useContentStore(state => state);
   const {primary} = useThemeStore(state => state);
@@ -126,7 +128,11 @@ const Slider = ({
           removeClippedSubviews={true}
           drawDistance={300}
           ListFooterComponent={
-            !isLoading && posts.length === 0 ? (
+            !isLoading && error ? (
+              <View className="flex flex-row w-96 justify-center h-10 items-center">
+                <Text className="text-red-500 text-center">{error}</Text>
+              </View>
+            ) : !isLoading && posts.length === 0 ? (
               <View className="flex flex-row w-96 justify-center h-10 items-center">
                 <Text className="text-whiter text-center text-white">
                   No content found

@@ -47,6 +47,7 @@ const DownloadComponent = ({
   const [downloadId, setDownloadId] = useState<number | null>(null);
   const [servers, setServers] = useState<Stream[]>([]);
   const [serverLoading, setServerLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   const [downloadActive, setDownloadActive] = useState(false);
 
   // check if file already exists
@@ -88,21 +89,30 @@ const DownloadComponent = ({
     }
     const getServer = async () => {
       setServerLoading(true);
-      const servers = await providerManager.getStream({
-        link,
-        type,
-        signal: controller.signal,
-        providerValue: providerValue || provider.value,
-      });
-      const filteredServers = servers;
-      // .filter(
-      //   server =>
-      //     !manifest[
-      //       providerValue || provider.value
-      //     ].nonDownloadableServer?.includes(server.server),
-      // );
-      setServerLoading(false);
-      setServers(filteredServers);
+      setServerError(null);
+      try {
+        const servers = await providerManager.getStream({
+          link,
+          type,
+          signal: controller.signal,
+          providerValue: providerValue || provider.value,
+        });
+        const filteredServers = servers;
+        // .filter(
+        //   server =>
+        //     !manifest[
+        //       providerValue || provider.value
+        //     ].nonDownloadableServer?.includes(server.server),
+        // );
+        setServers(filteredServers);
+      } catch (error: any) {
+        console.error('Error fetching servers:', error);
+        const errorMessage = error?.message || 'Failed to fetch servers';
+        setServerError(errorMessage);
+        setServers([]);
+      } finally {
+        setServerLoading(false);
+      }
     };
     getServer();
 
@@ -212,6 +222,7 @@ const DownloadComponent = ({
           showModal={downloadModal}
           data={servers}
           loading={serverLoading}
+          error={serverError}
           title="Select Server To Download"
           onPressVideo={(server: Stream) => {
             downloadManager({
@@ -245,6 +256,7 @@ const DownloadComponent = ({
           showModal={longPressModal}
           data={servers}
           loading={serverLoading}
+          error={serverError}
           title="Select Server To Open"
           onPressVideo={(server: Stream) => {
             longPressDownload(server.link);
