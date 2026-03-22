@@ -1,4 +1,3 @@
-import {AndroidImportance} from '@notifee/react-native';
 import {extensionStorage, ProviderExtension} from '../storage/extensionStorage';
 import {extensionManager} from './ExtensionManager';
 import {settingsStorage} from '../storage';
@@ -21,14 +20,35 @@ class UpdateProvidersService {
   async checkForUpdates(): Promise<UpdateInfo[]> {
     try {
       const installedProviders = extensionStorage.getInstalledProviders();
-      const availableProviders = await extensionManager.fetchManifest(true);
+      const sources = new Map<string, ProviderExtension[]>();
+      const sourceByAuthor = new Map<string, {author: string; url: string}>();
+
+      for (const provider of installedProviders) {
+        if (provider.source) {
+          const author = provider.source.author || 'unknown';
+          if (!sourceByAuthor.has(author)) {
+            sourceByAuthor.set(author, provider.source);
+          }
+        }
+      }
+
+      for (const [author, source] of sourceByAuthor.entries()) {
+        try {
+          const availableProviders =
+            await extensionManager.fetchManifest(source);
+          sources.set(author, availableProviders);
+        } catch (error) {
+          console.warn(`Failed to fetch source ${author} for updates:`, error);
+          sources.set(author, []);
+        }
+      }
 
       const updateInfos: UpdateInfo[] = [];
 
       for (const installed of installedProviders) {
-        const available = availableProviders.find(
-          p => p.value === installed.value,
-        );
+        const available = sources
+          .get(installed.source?.author || 'unknown')
+          ?.find(p => p.value === installed.value);
 
         if (
           available &&
@@ -63,7 +83,10 @@ class UpdateProvidersService {
   async updateProvider(provider: ProviderExtension): Promise<boolean> {
     try {
       // Uninstall old version
-      extensionStorage.uninstallProvider(provider.value);
+      extensionStorage.uninstallProvider(
+        provider.value,
+        provider.source?.author,
+      );
 
       // Install new version
       await extensionManager.installProvider(provider);
@@ -142,14 +165,6 @@ class UpdateProvidersService {
   startAutomaticUpdateCheck(): void {
     // Check immediately
     this.checkForUpdatesAndAutoUpdate();
-
-    // Check every 6 hours
-    this.updateCheckInterval = setInterval(
-      () => {
-        this.checkForUpdatesAndAutoUpdate();
-      },
-      6 * 60 * 60 * 1000,
-    );
   }
 
   /**

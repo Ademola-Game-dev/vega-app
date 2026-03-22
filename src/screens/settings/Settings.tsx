@@ -176,7 +176,7 @@ const Settings = ({navigation}: Props) => {
               <TouchableNativeFeedback
                 onPress={() => navigation.navigate('Extensions')}
                 background={TouchableNativeFeedback.Ripple('#333333', false)}>
-                <View className="flex-row items-center justify-between p-4">
+                <View className="flex-row items-center justify-between p-4 mr-5">
                   <View className="flex-row items-center">
                     <MaterialCommunityIcons
                       name="puzzle"
@@ -354,7 +354,7 @@ const Settings = ({navigation}: Props) => {
               </TouchableNativeFeedback>
 
               {/* GitHub */}
-              <TouchableNativeFeedback
+              {/* <TouchableNativeFeedback
                 onPress={() => Linking.openURL(socialLinks.github)}
                 background={TouchableNativeFeedback.Ripple('#333333', false)}>
                 <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
@@ -366,22 +366,7 @@ const Settings = ({navigation}: Props) => {
                   </View>
                   <Feather name="external-link" size={20} color="gray" />
                 </View>
-              </TouchableNativeFeedback>
-
-              {/* sponsore */}
-              <TouchableNativeFeedback
-                onPress={() => Linking.openURL(socialLinks.sponsor)}
-                background={TouchableNativeFeedback.Ripple('#333333', false)}>
-                <View className="flex-row items-center justify-between p-4">
-                  <View className="flex-row items-center">
-                    <AntDesign name="heart" size={22} color="#ff69b4" />
-                    <Text className="text-white ml-3 text-base">
-                      Sponsor Project
-                    </Text>
-                  </View>
-                  <Feather name="external-link" size={20} color="gray" />
-                </View>
-              </TouchableNativeFeedback>
+              </TouchableNativeFeedback> */}
             </View>
           </View>
         </AnimatedSection>

@@ -9,22 +9,21 @@ import {
   Alert,
   RefreshControl,
   Image,
-  TextInput,
-  Switch,
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {SettingsStackParamList} from '../../App';
 import {
   MaterialCommunityIcons,
-  MaterialIcons,
   Feather,
   FontAwesome6,
+  MaterialIcons,
 } from '@expo/vector-icons';
 import useThemeStore from '../../lib/zustand/themeStore';
 import useContentStore from '../../lib/zustand/contentStore';
 import {
   extensionStorage,
   ProviderExtension,
+  ProviderSource,
 } from '../../lib/storage/extensionStorage';
 import {extensionManager} from '../../lib/services/ExtensionManager';
 import {
@@ -34,6 +33,7 @@ import {
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import {settingsStorage} from '../../lib/storage';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
+import ProviderSourceManager from './components/ProviderSourceManager';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Extensions'>;
 
@@ -58,24 +58,26 @@ const Extensions = ({navigation}: Props) => {
   const [updatingProvider, setUpdatingProvider] = useState<string | null>(null);
   const [updateInfos, setUpdateInfos] = useState<UpdateInfo[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [useCustomBaseUrl, setUseCustomBaseUrl] = useState(
-    settingsStorage.isUsingCustomProviderBaseUrl(),
+  const [activeSourceAuthor, setActiveSourceAuthor] = useState<string>(
+    extensionStorage.getProviderSource()?.author || '',
   );
-  const [customBaseUrl, setCustomBaseUrl] = useState(
-    settingsStorage.getCustomProviderBaseUrl(),
-  );
-  const [showBaseUrlSettings, setShowBaseUrlSettings] = useState(false);
   // Load providers on component mount
   useEffect(() => {
     const initializeExtensions = async () => {
       try {
         await extensionManager.initialize();
-        loadProviders();
+        const source = extensionStorage.getProviderSource();
+        const author = source?.author || '';
+        setActiveSourceAuthor(author);
+        loadProviders(author);
         await checkForUpdates();
 
         // Try to fetch latest providers if we don't have any
-        if (!availableProviders || availableProviders.length === 0) {
-          await handleRefresh();
+        if (
+          author &&
+          (!availableProviders || availableProviders.length === 0)
+        ) {
+          await refreshProviders(author);
         }
       } catch (error) {
         // Still try to load from cache if initialization fails
@@ -85,13 +87,26 @@ const Extensions = ({navigation}: Props) => {
 
     initializeExtensions();
   }, []);
-  const loadProviders = () => {
+
+  const loadProviders = (author?: string) => {
+    const selectedAuthor =
+      author || extensionStorage.getProviderSource()?.author || '';
     const installed = extensionStorage.getInstalledProviders() || [];
-    const available = extensionStorage.getAvailableProviders() || [];
+    const available = selectedAuthor
+      ? extensionStorage.getAvailableProviders(selectedAuthor)
+      : [];
     setInstalledProviders(installed);
     setAvailableProviders(available.filter(item => item && !item.disabled));
+    setActiveSourceAuthor(selectedAuthor);
   };
+
   const checkForUpdates = async () => {
+    const source = extensionStorage.getProviderSource();
+    if (!source) {
+      setUpdateInfos([]);
+      return;
+    }
+
     try {
       const updates = await updateProvidersService.checkForUpdatesManual();
       setUpdateInfos(updates);
@@ -113,7 +128,8 @@ const Extensions = ({navigation}: Props) => {
       });
     }
 
-    setUpdatingProvider(provider.value);
+    const providerKey = `${provider.source?.author || ''}:${provider.value}`;
+    setUpdatingProvider(providerKey);
     try {
       const success = await updateProvidersService.updateProvider(provider);
       if (success) {
@@ -126,7 +142,10 @@ const Extensions = ({navigation}: Props) => {
         );
 
         // Update the active provider if it was the one being updated
-        if (activeExtensionProvider?.value === provider.value) {
+        if (
+          activeExtensionProvider?.value === provider.value &&
+          activeExtensionProvider?.source?.author === provider.source?.author
+        ) {
           setActiveExtensionProvider(provider);
         }
       } else {
@@ -162,7 +181,8 @@ const Extensions = ({navigation}: Props) => {
       });
     }
 
-    setInstallingProvider(provider.value);
+    const providerKey = `${provider.source?.author || ''}:${provider.value}`;
+    setInstallingProvider(providerKey);
     try {
       await extensionManager.installProvider(provider);
       loadProviders();
@@ -174,7 +194,8 @@ const Extensions = ({navigation}: Props) => {
       setInstalledProviders(extensionStorage.getInstalledProviders() || []);
       if (
         !activeExtensionProvider ||
-        activeExtensionProvider.value !== provider.value
+        activeExtensionProvider.value !== provider.value ||
+        activeExtensionProvider.source?.author !== provider.source?.author
       ) {
         setActiveExtensionProvider(provider);
       }
@@ -202,18 +223,26 @@ const Extensions = ({navigation}: Props) => {
           text: 'Uninstall',
           style: 'destructive',
           onPress: () => {
-            extensionStorage.uninstallProvider(provider.value);
+            extensionStorage.uninstallProvider(
+              provider.value,
+              provider.source?.author,
+            );
             loadProviders();
             setInstalledProviders(
               extensionStorage.getInstalledProviders() || [],
             );
 
             // If this was the active provider, clear it
-            if (activeExtensionProvider?.value === provider?.value) {
+            if (
+              activeExtensionProvider?.value === provider?.value &&
+              activeExtensionProvider?.source?.author ===
+                provider?.source?.author
+            ) {
               setActiveExtensionProvider(
                 extensionStorage.getInstalledProviders()[0] || {
                   value: '',
                   display_name: '',
+                  source: {author: '', url: ''},
                   type: '',
                   version: '',
                 },
@@ -239,68 +268,28 @@ const Extensions = ({navigation}: Props) => {
     setActiveExtensionProvider(provider);
   };
 
-  const handleToggleCustomBaseUrl = (enabled: boolean) => {
-    if (enabled) {
-      // Show warning when enabling custom URL
-      Alert.alert(
-        '⚠️ Security Warning',
-        'Custom provider sources can run arbitrary code in the app. Only use provider URLs from sources you absolutely trust.',
-        [
-          {text: 'Cancel', style: 'cancel'},
-          {
-            text: 'I Understand',
-            style: 'destructive',
-            onPress: () => {
-              setUseCustomBaseUrl(true);
-              settingsStorage.setUseCustomProviderBaseUrl(true);
-            },
-          },
-        ],
-      );
-    } else {
-      setUseCustomBaseUrl(false);
-      settingsStorage.setUseCustomProviderBaseUrl(false);
-    }
-  };
-
-  const handleSaveCustomBaseUrl = () => {
-    if (!customBaseUrl.trim()) {
-      Alert.alert('Error', 'Please enter a valid URL');
-      return;
-    }
-
-    // Basic URL validation
-    const isValidUrl = (url: string): boolean => {
-      try {
-        const parsed = new URL(url);
-        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-      } catch {
-        return false;
-      }
-    };
-
-    if (!isValidUrl(customBaseUrl)) {
-      Alert.alert('Error', 'Please enter a valid URL');
-      return;
-    }
-
-    settingsStorage.setCustomProviderBaseUrl(customBaseUrl.trim());
-    Alert.alert(
-      'Success',
-      'Provider base URL updated. Pull to refresh to load providers from the new source.',
-    );
-  };
-
-  const handleRefresh = async () => {
+  const refreshProviders = async (sourceAuthor: string) => {
     setRefreshing(true);
     try {
-      const providers = await extensionManager.fetchManifest(true);
+      if (!sourceAuthor) {
+        setAvailableProviders([]);
+        return;
+      }
 
-      // Update available providers in storage and state
-      extensionStorage.setAvailableProviders(providers);
+      const source = extensionStorage
+        .getProviderSources()
+        .find(item => item.author === sourceAuthor);
+
+      if (!source) {
+        setAvailableProviders([]);
+        return;
+      }
+
+      const providers = await extensionManager.fetchManifest(source, true);
+
       setAvailableProviders(providers);
 
-      loadProviders();
+      loadProviders(sourceAuthor);
       await checkForUpdates();
     } catch (error) {
       console.error('Refresh error:', error);
@@ -312,14 +301,26 @@ const Extensions = ({navigation}: Props) => {
       setRefreshing(false);
     }
   };
+
+  const handleRefresh = async () => {
+    await refreshProviders(activeSourceAuthor);
+  };
   const renderProviderCard = ({item}: {item: ProviderExtension}) => {
     if (!item || !item.value) return null;
-    const isActive = activeExtensionProvider?.value === item.value;
-    const isInstalled = extensionStorage.isProviderInstalled(item.value);
-    const isInstalling = installingProvider === item.value;
-    const isUpdating = updatingProvider === item.value;
+    const itemKey = `${item.source?.author || ''}:${item.value}`;
+    const isActive =
+      activeExtensionProvider?.value === item.value &&
+      activeExtensionProvider?.source?.author === item.source?.author;
+    const isInstalled = extensionStorage.isProviderInstalled(
+      item.value,
+      item.source?.author,
+    );
+    const isInstalling = installingProvider === itemKey;
+    const isUpdating = updatingProvider === itemKey;
     const updateInfo = updateInfos.find(
-      info => info.provider.value === item.value,
+      info =>
+        info.provider.value === item.value &&
+        info.provider.source?.author === item.source?.author,
     );
     const hasUpdate = updateInfo?.hasUpdate || false;
 
@@ -344,7 +345,10 @@ const Extensions = ({navigation}: Props) => {
           <View className="flex-1 mx-3">
             <View className="flex-row items-center flex-wrap">
               <Text className="text-white text-lg font-bold tracking-wide flex-1">
-                {item.display_name || 'Unknown Provider'}
+                {item.display_name || 'Unknown Provider'}{' '}
+                <Text className="font-medium text-sm text-gray-400">
+                  v{item.version || 'Unknown'}
+                </Text>
               </Text>
               {hasUpdate && updateInfo && (
                 <View
@@ -356,13 +360,14 @@ const Extensions = ({navigation}: Props) => {
                 </View>
               )}
             </View>
-            <Text className="text-gray-400 text-sm ">
-              Version{' '}
-              <Text className="text-white font-medium">
-                {item.version || 'Unknown'}
-              </Text>{' '}
+            <Text className="text-gray-400 text-xs capitalize">
               • {item.type || 'Unknown'}
             </Text>
+            {item?.source?.author && (
+              <Text className="text-gray-400 text-xs" numberOfLines={1}>
+                • {item.source.author}
+              </Text>
+            )}
           </View>
           {/* Right: Buttons */}
           <View className="flex-row gap-3 items-center">
@@ -486,104 +491,23 @@ const Extensions = ({navigation}: Props) => {
         </TouchableOpacity>
       </View>
 
-      {/* Custom Provider Base URL Settings */}
-      <View className="mx-4 mt-4">
-        <TouchableOpacity
-          className="flex-row items-center justify-between bg-tertiary rounded-xl px-4 py-3 border border-quaternary"
-          onPress={() => setShowBaseUrlSettings(!showBaseUrlSettings)}>
-          <View className="flex-row items-center">
-            <MaterialCommunityIcons
-              name="cog-outline"
-              size={22}
-              color="#9CA3AF"
-            />
-            <Text className="text-white ml-3 font-medium">
-              Provider Source Settings
-            </Text>
-          </View>
-          <MaterialIcons
-            name={showBaseUrlSettings ? 'expand-less' : 'expand-more'}
-            size={24}
-            color="#9CA3AF"
-          />
-        </TouchableOpacity>
-
-        {showBaseUrlSettings && (
-          <View className="bg-tertiary rounded-xl mt-2 p-4 border border-quaternary">
-            {/* Warning Banner */}
-            <View className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-3 mb-4">
-              <View className="flex-row items-center mb-2">
-                <MaterialCommunityIcons
-                  name="alert-outline"
-                  size={20}
-                  color="#F59E0B"
-                />
-                <Text className="text-yellow-500 font-bold ml-2">
-                  Security Warning
-                </Text>
-              </View>
-              <Text className="text-yellow-600/90 text-xs leading-5">
-                Providers can execute arbitrary code in the app. Only use
-                sources you trust.
-              </Text>
-            </View>
-
-            {/* Toggle for Custom URL */}
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-1">
-                <Text className="text-white font-medium">
-                  Use Custom Provider Source
-                </Text>
-                <Text className="text-gray-400 text-xs mt-1">
-                  Override the default provider repository
-                </Text>
-              </View>
-              <Switch
-                value={useCustomBaseUrl}
-                onValueChange={handleToggleCustomBaseUrl}
-                trackColor={{false: '#374151', true: primary}}
-                thumbColor={useCustomBaseUrl ? '#fff' : '#9CA3AF'}
-              />
-            </View>
-
-            {/* Custom URL Input */}
-            {useCustomBaseUrl && (
-              <View>
-                <Text className="text-gray-400 text-sm mb-2">
-                  Provider Base URL
-                </Text>
-                <View className="flex-row items-center">
-                  <TextInput
-                    className="flex-1 bg-quaternary rounded-lg px-4 py-3 text-white border border-gray-700"
-                    placeholder="https://example.com/providers"
-                    placeholderTextColor="#6B7280"
-                    value={customBaseUrl}
-                    onChangeText={setCustomBaseUrl}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    keyboardType="url"
-                  />
-                  <TouchableOpacity
-                    onPress={handleSaveCustomBaseUrl}
-                    className="ml-2 px-4 py-3 rounded-lg"
-                    style={{backgroundColor: primary}}>
-                    <Text className="text-white font-medium">Save</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text className="text-gray-500 text-xs mt-2">
-                  URL should point to a repository containing manifest.json and
-                  provider files
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+      <ProviderSourceManager
+        visible={activeTab === 'available'}
+        primary={primary}
+        onSourceChanged={async (source: ProviderSource | undefined) => {
+          const author = source?.author || '';
+          setActiveSourceAuthor(author);
+          loadProviders(author);
+          await refreshProviders(author);
+        }}
+      />
 
       {/* Provider list */}
       <FlatList
         data={currentData}
-        keyExtractor={(item, index) => item?.value || `provider-${index}`}
+        keyExtractor={(item, index) =>
+          `${item?.source?.author || 'none'}:${item?.value || `provider-${index}`}`
+        }
         renderItem={renderProviderCard}
         className="flex-1 mt-4"
         refreshControl={

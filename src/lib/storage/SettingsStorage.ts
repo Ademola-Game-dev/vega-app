@@ -36,10 +36,6 @@ export enum SettingsKeys {
 
   // Telemetry (privacy)
   TELEMETRY_OPT_IN = 'telemetryOptIn',
-
-  // Custom provider base URL
-  CUSTOM_PROVIDER_BASE_URL = 'customProviderBaseUrl',
-  USE_CUSTOM_PROVIDER_BASE_URL = 'useCustomProviderBaseUrl',
 }
 
 /**
@@ -222,28 +218,6 @@ export class SettingsStorage {
 
   setTelemetryOptIn(enabled: boolean): void {
     mainStorage.setBool(SettingsKeys.TELEMETRY_OPT_IN, enabled);
-  }
-
-  // Custom provider base URL
-  getCustomProviderBaseUrl(): string {
-    return (
-      mainStorage.getString(SettingsKeys.CUSTOM_PROVIDER_BASE_URL) ||
-      'https://raw.githubusercontent.com/Zenda-Cross/vega-providers/refs/heads/main'
-    );
-  }
-
-  setCustomProviderBaseUrl(url: string): void {
-    mainStorage.setString(SettingsKeys.CUSTOM_PROVIDER_BASE_URL, url);
-  }
-
-  isUsingCustomProviderBaseUrl(): boolean {
-    return (
-      mainStorage.getBool(SettingsKeys.USE_CUSTOM_PROVIDER_BASE_URL) === true
-    );
-  }
-
-  setUseCustomProviderBaseUrl(enabled: boolean): void {
-    mainStorage.setBool(SettingsKeys.USE_CUSTOM_PROVIDER_BASE_URL, enabled);
   }
 
   // Generic get/set methods for settings not covered by specific methods
