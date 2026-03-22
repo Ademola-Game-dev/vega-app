@@ -21,6 +21,11 @@ ___
 
 <br>
 
+## Add Provider source
+> [!TIP]
+>You can add a provider source by adding Github name of user or by entering the URL of providers repo.
+To use providers offical providers enter `vega-org` in the input and press confirm
+
 ## Screenshots
 ![Screenshots](https://github.com/user-attachments/assets/b86af756-e66e-4ae7-b2af-61b25cfd8d4e)
 
