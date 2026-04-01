@@ -95,7 +95,7 @@ module.exports = () => {
       autolinking: {exclude: ['expo-splash-screen']},
       plugins,
       slug: 'vega',
-      version: '3.3.4',
+      version: '3.3.5',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -107,7 +107,7 @@ module.exports = () => {
         minSdkVersion: 24,
         edgeToEdgeEnabled: true,
         package: 'com.vega',
-        versionCode: 162,
+        versionCode: 164,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
