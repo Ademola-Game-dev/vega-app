@@ -302,20 +302,44 @@ export class ExtensionStorage {
     const allModules =
       mainStorage.getArray<ProviderModule>(ExtensionKeys.PROVIDER_MODULES) ||
       [];
+    const providerMatches = allModules.filter(m => m.value === providerValue);
 
-    const exactMatch = allModules.find(m =>
-      this.isModuleMatch(m, providerValue, sourceAuthor),
-    );
-
-    if (exactMatch) {
-      return exactMatch;
+    if (providerMatches.length === 0) {
+      return undefined;
     }
 
     if (sourceAuthor) {
-      return allModules.find(m => m.value === providerValue && !m.sourceAuthor);
+      const exactMatch = providerMatches.find(
+        m => m.sourceAuthor === sourceAuthor,
+      );
+      if (exactMatch) {
+        return exactMatch;
+      }
+
+      return providerMatches.find(m => !m.sourceAuthor);
     }
 
-    return undefined;
+    const activeSourceAuthor = this.getProviderSource()?.author;
+    if (activeSourceAuthor) {
+      const activeSourceMatch = providerMatches.find(
+        m => m.sourceAuthor === activeSourceAuthor,
+      );
+      if (activeSourceMatch) {
+        return activeSourceMatch;
+      }
+    }
+
+    // Prefer source-scoped cache over legacy unscoped entries.
+    const scopedMatches = providerMatches.filter(m => !!m.sourceAuthor);
+    if (scopedMatches.length > 0) {
+      return scopedMatches.reduce((latest, current) =>
+        current.cachedAt > latest.cachedAt ? current : latest,
+      );
+    }
+
+    return providerMatches.reduce((latest, current) =>
+      current.cachedAt > latest.cachedAt ? current : latest,
+    );
   }
 
   /**
