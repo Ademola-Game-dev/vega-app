@@ -14,7 +14,7 @@ Android app for streaming media.
 
 ___
 
-## Download  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zenda-Cross/vega-app/total?link=https%3A%2F%2Fgithub.com%2FZenda-Cross%2Fvega-app%2Freleases&label=Github%20Downloads)
+## Download APK ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zenda-Cross/vega-app/total?link=https%3A%2F%2Fgithub.com%2FZenda-Cross%2Fvega-app%2Freleases&label=Github%20Downloads)
 > <sub>Download Universal version if you are confused about armeabi-v7a or arm64-v8a or follow this guide https://vega.8man.in/guide/.</sub>
 
 [![Download Apk](https://custom-icon-badges.demolab.com/badge/-Download_From_Github-black?style=for-the-badge&logo=download&logoColor=white)](https://github.com/Zenda-Cross/vega-app/releases/latest)
