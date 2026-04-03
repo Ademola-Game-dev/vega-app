@@ -15,16 +15,18 @@ Android app for streaming media.
 ___
 
 ## Download  ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zenda-Cross/vega-app/total?link=https%3A%2F%2Fgithub.com%2FZenda-Cross%2Fvega-app%2Freleases&label=Github%20Downloads)
-> <sub>Download Universal version if you are confused about armeabi-v7a or arm64-v8a.</sub>
+> <sub>Download Universal version if you are confused about armeabi-v7a or arm64-v8a or follow this guide https://vega.8man.in/guide/.</sub>
 
-[![Download Apk](https://custom-icon-badges.demolab.com/badge/-Download_Apk-blue?style=for-the-badge&logo=download&logoColor=white "Download Apk")](https://github.com/Zenda-Cross/vega-app/releases/latest)
+[![Download Apk](https://custom-icon-badges.demolab.com/badge/-Download_From_Github-black?style=for-the-badge&logo=download&logoColor=white)](https://github.com/Zenda-Cross/vega-app/releases/latest)
+
+[![Download Apk](https://custom-icon-badges.demolab.com/badge/-Download_From_Website-tomato?style=for-the-badge&logo=download&logoColor=white)](https://vega.8man.in/#download)
+
 
 <br>
 
 ## Add Provider source
 > [!TIP]
->You can add a provider source by adding Github name of user or by entering the URL of providers repo.
-To use providers offical providers enter `vega-org` in the input and press confirm
+> Follow the guide here https://vega.8man.in/guide/adding-providers/
 
 ## Screenshots
 ![Screenshots](https://github.com/user-attachments/assets/b86af756-e66e-4ae7-b2af-61b25cfd8d4e)
