@@ -3,9 +3,9 @@
 # Vega-App
 Android app for streaming media.
 ### Features
+- Bring your own sources.
 - Steam and Download Ad-Free.
-- Multiple sources.
-- Multi Audio and Subs (Hindi, English, etc.).
+- Multi Audio and external Subs support.
 - WatchList.
 - External player and Downloader support.
 <br>
