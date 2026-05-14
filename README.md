@@ -78,7 +78,7 @@ https://reactnative.dev/docs/signed-apk-android
 
 ---
 > [!IMPORTANT]
-> Vega App does not store any media files on our servers and is not directly linked to the media. Third-party services host all media, and Vega App merely provides a search and web scraping tool that indexes publicly available data. We are not responsible for the content or availability of the media, as we do not host or control any of it.
+> Vega App does not host, store, or provide any media content. It is not affiliated with or connected to any external providers or extensions. All content accessed through the app is managed and sourced directly by the user via third-party tools or integrations. Vega App has no control over it.
 
 
 ## Stars
