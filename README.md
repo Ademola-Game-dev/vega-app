@@ -28,8 +28,10 @@ ___
 > [!TIP]
 > Follow the guide here https://vega.8man.in/guide/adding-providers/
 
-## Screenshots
-![Screenshots](https://github.com/user-attachments/assets/b86af756-e66e-4ae7-b2af-61b25cfd8d4e)
+##
+<!--  ![Screenshots](https://github.com/user-attachments/assets/b86af756-e66e-4ae7-b2af-61b25cfd8d4e) -->
+<img width="2712" height="1220" alt="Screenshot_2025-03-20-18-36-18-593_com vega" src="https://github.com/user-attachments/assets/3befd3ef-81b1-417c-a250-42bbfbae58d6" />
+
 
 ___
 
