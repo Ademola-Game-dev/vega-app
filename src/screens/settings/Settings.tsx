@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  Linking,
   TouchableOpacity,
   TouchableNativeFeedback,
   ScrollView,
@@ -15,7 +14,6 @@ import {
 } from '../../lib/storage';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useContentStore from '../../lib/zustand/contentStore';
-import {socialLinks} from '../../lib/constants';
 import {
   NativeStackScreenProps,
   NativeStackNavigationProp,
@@ -23,7 +21,6 @@ import {
 import {SettingsStackParamList, TabStackParamList} from '../../App';
 import {
   MaterialCommunityIcons,
-  AntDesign,
   Feather,
   MaterialIcons,
 } from '@expo/vector-icons';

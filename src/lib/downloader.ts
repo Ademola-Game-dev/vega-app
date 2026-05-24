@@ -2,10 +2,15 @@ import {ifExists} from './file/ifExists';
 // import {hlsDownloader} from './hlsDownloader';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
-import {downloadFolder} from './constants';
+import {settingsStorage} from './storage';
 import requestStoragePermission from './file/getStoragePermission';
 import {hlsDownloader2} from './hlsDownloader2';
 import {notificationService} from './services/Notification';
+import {
+  copyFileToSaf,
+  getDownloadFileName,
+  isSafDownloadLocation,
+} from './downloadLocation';
 
 export const downloadManager = async ({
   title,
@@ -59,16 +64,25 @@ export const downloadManager = async ({
   // }
   try {
     // downloadFile and save it to download folder
-    if (!(await RNFS.exists(downloadFolder))) {
-      await RNFS.mkdir(downloadFolder);
+    const downloadLocation = settingsStorage.getDownloadLocationConfig();
+    const isSafLocation = isSafDownloadLocation(downloadLocation);
+
+    if (!isSafLocation && !(await RNFS.exists(downloadLocation.path))) {
+      await RNFS.mkdir(downloadLocation.path);
     }
     await notificationService.requestPermission();
 
     if (fileType === 'm3u8') {
+      if (isSafLocation) {
+        throw new Error(
+          'Custom Android download folders do not support HLS yet',
+        );
+      }
+
       // hlsDownloader({
       //   videoUrl: url,
       //   downloadStore,
-      //   path: `${downloadFolder}/${fileName}.mp4`,
+      //   path: `${downloadLocation}/${fileName}.mp4`,
       //   fileName,
       //   title,
       //   setAlreadyDownloaded,
@@ -78,7 +92,7 @@ export const downloadManager = async ({
       hlsDownloader2({
         videoUrl: url,
         setDownloadActive,
-        path: `${downloadFolder}/${fileName}.mp4`,
+        path: `${downloadLocation.path}/${fileName}.mp4`,
         fileName,
         title,
         setAlreadyDownloaded,
@@ -95,7 +109,10 @@ export const downloadManager = async ({
       console.log('Downloading HLS');
       return;
     }
-    const downloadDest = `${downloadFolder}/${fileName}.${fileType}`;
+    const targetFileName = getDownloadFileName(fileName, fileType);
+    const downloadDest = isSafLocation
+      ? `${RNFS.CachesDirectoryPath}/${targetFileName}`
+      : `${downloadLocation.path}/${targetFileName}`;
     const ret = RNFS.downloadFile({
       fromUrl: url,
       progressInterval: 1000,
@@ -112,9 +129,7 @@ export const downloadManager = async ({
         const progress = res.bytesWritten / res.contentLength;
         const body =
           res.contentLength < 1024 * 1024 * 1024
-            ? // less than 1GB?
-
-              Math.round(res.bytesWritten / 1024 / 1024) +
+            ? Math.round(res.bytesWritten / 1024 / 1024) +
               ' / ' +
               Math.round(res.contentLength / 1024 / 1024) +
               ' MB'
@@ -122,7 +137,6 @@ export const downloadManager = async ({
               ' / ' +
               parseFloat((res.contentLength / 1024 / 1024 / 1024).toFixed(2)) +
               ' GB';
-        // console.log('Download progress:', progress * 100);
         notificationService.showDownloadProgress(
           title,
           fileName,
@@ -133,23 +147,53 @@ export const downloadManager = async ({
       },
     });
     ret.promise.then(res => {
-      console.log('Download complete', res);
-      setAlreadyDownloaded(true);
-      notificationService.showDownloadComplete(title, fileName);
-      setDownloadActive(false);
+      const finalizeDownload = async () => {
+        console.log('Download complete', res);
+
+        if (isSafLocation) {
+          await copyFileToSaf({
+            fromPath: downloadDest,
+            directoryUri: downloadLocation.uri,
+            fileName,
+            fileType,
+          });
+          await RNFS.unlink(downloadDest);
+        }
+
+        setAlreadyDownloaded(true);
+        notificationService.showDownloadComplete(title, fileName);
+        setDownloadActive(false);
+      };
+
+      finalizeDownload().catch(async err => {
+        deleteDownload();
+        console.log('Download finalize error:', err);
+        Alert.alert('Download failed', err.message || 'Failed to download');
+        notificationService.showDownloadFailed(title, fileName);
+        setDownloadActive(false);
+        setAlreadyDownloaded(false);
+
+        if (await RNFS.exists(downloadDest)) {
+          await RNFS.unlink(downloadDest);
+        }
+      });
       // downloadManager({
       //   ...activeDownloads[0],
       //   downloadStore,
       //   setAlreadyDownloaded,
       // });
     });
-    ret.promise.catch(err => {
+    ret.promise.catch(async err => {
       deleteDownload();
       console.log('Download error:', err);
       Alert.alert('Download failed', err.message || 'Failed to download');
       notificationService.showDownloadFailed(title, fileName);
       setDownloadActive(false);
       setAlreadyDownloaded(false);
+
+      if (isSafLocation && (await RNFS.exists(downloadDest))) {
+        await RNFS.unlink(downloadDest);
+      }
       // downloadManager({
       //   ...activeDownloads[0],
       //   downloadStore,

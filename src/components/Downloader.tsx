@@ -16,11 +16,11 @@ import {downloadManager} from '../lib/downloader';
 import {cancelHlsDownload} from '../lib/hlsDownloader2';
 // import {FFmpegKit} from 'ffmpeg-kit-react-native';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import {downloadFolder} from '../lib/constants';
 import useThemeStore from '../lib/zustand/themeStore';
 import DownloadBottomSheet from './DownloadBottomSheet';
 import {settingsStorage} from '../lib/storage';
 import {providerManager} from '../lib/services/ProviderManager';
+import {deleteDownloadedFileByBaseName} from '../lib/downloadLocation';
 
 const DownloadComponent = ({
   link,
@@ -62,17 +62,12 @@ const DownloadComponent = ({
   // handle download deletion
   const deleteDownload = async () => {
     try {
-      const fileList = await RNFS.readDir(downloadFolder);
-      // Find a file with the given name (without extension)
-      const foundFile = fileList.find(fileItem => {
-        const nameWithoutExtension = fileItem.name
-          .split('.')
-          .slice(0, -1)
-          .join('.');
-        return nameWithoutExtension === fileName;
-      });
-      if (foundFile) {
-        await RNFS.unlink(foundFile.path);
+      const deleted = await deleteDownloadedFileByBaseName(
+        settingsStorage.getDownloadLocationConfig(),
+        fileName,
+      );
+
+      if (deleted) {
         setAlreadyDownloaded(false);
         setDeleteModal(false);
       }
@@ -283,18 +278,10 @@ const DownloadComponent = ({
               }
               setDownloadActive(false);
 
-              const files = await RNFS.readDir(downloadFolder);
-              // Find a file with the given name (without extension)
-              const foundFile = files.find(fileItem => {
-                const nameWithoutExtension = fileItem.name
-                  .split('.')
-                  .slice(0, -1)
-                  .join('.');
-                return nameWithoutExtension === fileName;
-              });
-              if (foundFile) {
-                await RNFS.unlink(foundFile.path);
-              }
+              await deleteDownloadedFileByBaseName(
+                settingsStorage.getDownloadLocationConfig(),
+                fileName,
+              );
             } catch (error) {
               console.log('Error cancelling download', error);
             }

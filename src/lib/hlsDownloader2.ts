@@ -158,40 +158,34 @@ const downloadSegment = async (
     throw new Error('Download cancelled');
   }
 
-  const response = await axios({
-    method: 'GET',
-    url: segmentUrl,
+  const download = RNFS.downloadFile({
+    fromUrl: segmentUrl,
+    toFile: outputPath,
     headers,
-    responseType: 'arraybuffer',
-    timeout: 30000,
+    background: false,
+    discretionary: false,
+    cacheable: false,
+    progressDivider: 0,
+    connectionTimeout: 30000,
+    readTimeout: 30000,
   });
 
-  // Convert ArrayBuffer to base64 string directly
-  const arrayBuffer = response.data as ArrayBuffer;
-  const uint8Array = new Uint8Array(arrayBuffer);
-  const binary = Array.from(uint8Array, byte => String.fromCharCode(byte)).join(
-    '',
-  );
-  const base64 = btoa(binary);
-
-  await RNFS.appendFile(outputPath, base64, 'base64');
+  await download.promise;
 };
 
 const mergeSegments = async (
   segmentPaths: string[],
   outputPath: string,
 ): Promise<void> => {
-  // For TS segments, we can simply concatenate them by appending files
   let isFirstFile = true;
 
   for (const segmentPath of segmentPaths) {
     if (await RNFS.exists(segmentPath)) {
-      const content = await RNFS.readFile(segmentPath, 'base64');
-
       if (isFirstFile) {
-        await RNFS.writeFile(outputPath, content, 'base64');
+        await RNFS.copyFile(segmentPath, outputPath);
         isFirstFile = false;
       } else {
+        const content = await RNFS.readFile(segmentPath, 'base64');
         await RNFS.appendFile(outputPath, content, 'base64');
       }
 

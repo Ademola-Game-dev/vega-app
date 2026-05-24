@@ -1,5 +1,4 @@
-import {downloadFolder} from '../constants';
-import {downloadsStorage} from '../storage';
+import {downloadsStorage, settingsStorage} from '../storage';
 import {DownloadPayload} from '../storage/DownloadsStorage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 
@@ -94,7 +93,7 @@ export class DownloadManager {
   }
 
   generateDownloadLocation(downloadPayload: DownloadPayload): string {
-    return `${downloadFolder}/${downloadPayload.provider}/${downloadPayload.folderName}/${downloadPayload.fileName}.${downloadPayload.fileType}`;
+    return `${settingsStorage.getDownloadLocation()}/${downloadPayload.provider}/${downloadPayload.folderName}/${downloadPayload.fileName}.${downloadPayload.fileType}`;
   }
 }
 
