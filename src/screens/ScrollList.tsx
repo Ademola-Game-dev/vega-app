@@ -16,6 +16,13 @@ import {providerManager} from '../lib/services/ProviderManager';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ScrollList'>;
 
+type ListItem = Post | {id: string; isSkeleton: true};
+
+const GRID_POSTER_WIDTH = 100;
+const GRID_POSTER_HEIGHT = 150;
+const LIST_POSTER_WIDTH = 70;
+const LIST_POSTER_HEIGHT = 100;
+
 const ScrollList = ({route}: Props): React.ReactElement => {
   const {primary} = useThemeStore(state => state);
   const navigation =
@@ -124,21 +131,35 @@ const ScrollList = ({route}: Props): React.ReactElement => {
     setPage(prevPage => prevPage + 1);
   };
 
-  // Limit the number of skeletons to prevent unnecessary renders
-  const renderSkeletons = () => {
-    const skeletonCount = viewType === 1 ? 6 : 3;
-    return Array.from({length: skeletonCount}).map((_, i) => (
-      <View
-        className="mx-3 gap-0 flex mb-3 justify-center items-center"
-        key={i}>
-        <SkeletonLoader height={150} width={100} />
-        <SkeletonLoader height={12} width={97} />
-      </View>
-    ));
-  };
+  const skeletons: ListItem[] = Array.from({
+    length: viewType === 1 ? 9 : 6,
+  }).map((_, i) => ({id: `skeleton-${i}`, isSkeleton: true}));
+  const listData: ListItem[] =
+    posts.length === 0 && isLoading ? skeletons : posts;
+
+  const renderSkeletonItem = () => (
+    <View
+      className={
+        viewType === 1
+          ? 'flex flex-col m-3 items-center'
+          : 'flex-row m-3 items-center'
+      }>
+      <SkeletonLoader
+        height={viewType === 1 ? GRID_POSTER_HEIGHT : LIST_POSTER_HEIGHT}
+        width={viewType === 1 ? GRID_POSTER_WIDTH : LIST_POSTER_WIDTH}
+        marginVertical={0}
+      />
+      <SkeletonLoader
+        height={viewType === 1 ? 12 : 18}
+        width={viewType === 1 ? 97 : '65%'}
+        marginVertical={viewType === 1 ? 8 : 0}
+        style={viewType === 1 ? undefined : {marginLeft: 12}}
+      />
+    </View>
+  );
 
   return (
-    <View className="h-full w-full bg-black items-center p-4">
+    <View className="h-full w-full bg-black p-4">
       <View className="w-full px-4 font-semibold my-6 flex-row justify-between items-center">
         <Text className="text-2xl font-bold" style={{color: primary}}>
           {route.params.title}
@@ -156,66 +177,67 @@ const ScrollList = ({route}: Props): React.ReactElement => {
           />
         </TouchableOpacity>
       </View>
-      <View className="justify-center flex-row w-96 ">
+      <View className="flex-1 w-full">
         <FlashList
           estimatedItemSize={300}
           ListFooterComponent={
-            <>
-              {isLoading && (
-                <View
-                  className={`flex ${
-                    viewType === 1 ? 'flex-row flex-wrap' : 'flex-col'
-                  } gap-1 justify-center items-center mb-16`}>
-                  {renderSkeletons()}
-                </View>
-              )}
+            <View className={posts.length > 0 && isLoading ? 'mb-16' : ''}>
+              {posts.length > 0 && isLoading ? renderSkeletonItem() : null}
               <View className="h-32" />
-            </>
+            </View>
           }
-          data={posts}
+          data={listData}
           numColumns={viewType === 1 ? 3 : 1}
           key={`view-type-${viewType}`}
           contentContainerStyle={{paddingBottom: 80}}
-          keyExtractor={(item, i) => `${item.title}-${i}`}
-          renderItem={({item}) => (
-            <TouchableOpacity
-              className={
-                viewType === 1
-                  ? 'flex flex-col m-3'
-                  : 'flex-row m-3 items-center'
-              }
-              onPress={() =>
-                navigation.navigate('Info', {
-                  link: item.link,
-                  provider: route.params.providerValue || provider.value,
-                  poster: item?.image,
-                })
-              }>
-              <Image
-                className="rounded-md"
-                source={{
-                  uri:
-                    item.image ||
-                    'https://placehold.jp/24/363636/ffffff/100x150.png?text=Vega',
-                }}
-                style={
-                  viewType === 1
-                    ? {width: 100, height: 150}
-                    : {width: 70, height: 100}
-                }
-              />
-              <Text
+          keyExtractor={(item, i) =>
+            'isSkeleton' in item ? item.id : `${item.title}-${i}`
+          }
+          renderItem={({item}) => {
+            if ('isSkeleton' in item) {
+              return renderSkeletonItem();
+            }
+
+            return (
+              <TouchableOpacity
                 className={
                   viewType === 1
-                    ? 'text-white text-center truncate w-24 text-xs'
-                    : 'text-white ml-3 truncate w-72 font-semibold text-base'
+                    ? 'flex flex-col m-3 items-center'
+                    : 'flex-row m-3 items-center'
+                }
+                onPress={() =>
+                  navigation.navigate('Info', {
+                    link: item.link,
+                    provider: route.params.providerValue || provider.value,
+                    poster: item?.image,
+                  })
                 }>
-                {item?.title?.length > 24 && viewType === 1
-                  ? item.title.slice(0, 24) + '...'
-                  : item.title}
-              </Text>
-            </TouchableOpacity>
-          )}
+                <Image
+                  className="rounded-md"
+                  source={{
+                    uri:
+                      item.image ||
+                      'https://placehold.jp/24/363636/ffffff/100x150.png?text=Vega',
+                  }}
+                  style={
+                    viewType === 1
+                      ? {width: GRID_POSTER_WIDTH, height: GRID_POSTER_HEIGHT}
+                      : {width: LIST_POSTER_WIDTH, height: LIST_POSTER_HEIGHT}
+                  }
+                />
+                <Text
+                  className={
+                    viewType === 1
+                      ? 'text-white text-center truncate w-24 text-xs'
+                      : 'text-white ml-3 truncate w-72 font-semibold text-base'
+                  }>
+                  {item?.title?.length > 24 && viewType === 1
+                    ? item.title.slice(0, 24) + '...'
+                    : item.title}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
           onEndReached={onEndReached}
           onEndReachedThreshold={0.5}
         />

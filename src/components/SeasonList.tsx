@@ -52,6 +52,7 @@ interface SeasonListProps {
     provider?: string;
     poster?: string;
   }>;
+  refreshVersion?: number;
 }
 
 interface PlayHandlerProps {
@@ -75,8 +76,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
   type,
   metaTitle,
   providerValue,
-  refreshing: _refreshing,
+  refreshing,
   routeParams,
+  refreshVersion,
 }) => {
   const {primary} = useThemeStore(state => state);
   const navigation =
@@ -132,6 +134,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
     providerValue,
     activeSeason?.episodesLink ? true : false,
   );
+
+  useEffect(() => {
+    if (refreshing && activeSeason?.episodesLink) {
+      refetchEpisodes();
+    }
+  }, [activeSeason?.episodesLink, refetchEpisodes, refreshVersion, refreshing]);
 
   // UI state
   const [vlcLoading, setVlcLoading] = useState<boolean>(false);

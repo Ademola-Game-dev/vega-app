@@ -1,11 +1,19 @@
+import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {providerManager} from '../services/ProviderManager';
 import {cacheStorage} from '../storage';
 import axios from 'axios';
 
+const getContentInfoCacheKey = (link: string, providerValue: string) =>
+  `contentInfo:${providerValue}:${link}`;
+
+const getEnhancedMetadataCacheKey = (imdbId: string, type: string) =>
+  `enhancedMeta:${type}:${imdbId}`;
+
 // Hook for fetching content info/metadata
 export const useContentInfo = (link: string, providerValue: string) => {
-  return useQuery({
+  const cacheKey = getContentInfoCacheKey(link, providerValue);
+  const query = useQuery({
     queryKey: ['contentInfo', link, providerValue],
     queryFn: async () => {
       console.log('Fetching content info for:', link);
@@ -21,12 +29,11 @@ export const useContentInfo = (link: string, providerValue: string) => {
       return data;
     },
     enabled: !!link && !!providerValue,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 0,
     gcTime: 60 * 60 * 1000, // 1 hour
     retry: 2,
-    // Use cached data as initial data
     initialData: () => {
-      const cached = cacheStorage.getString(link);
+      const cached = cacheStorage.getString(cacheKey) || cacheStorage.getString(link);
       if (cached) {
         try {
           return JSON.parse(cached);
@@ -36,20 +43,23 @@ export const useContentInfo = (link: string, providerValue: string) => {
       }
       return undefined;
     },
-    // Cache successful responses
-    meta: {
-      onSuccess: (data: any) => {
-        if (data) {
-          cacheStorage.setString(link, JSON.stringify(data));
-        }
-      },
-    },
+    initialDataUpdatedAt: 0,
+    refetchOnMount: 'always',
   });
+
+  useEffect(() => {
+    if (query.data) {
+      cacheStorage.setString(cacheKey, JSON.stringify(query.data));
+    }
+  }, [cacheKey, query.data]);
+
+  return query;
 };
 
 // Hook for fetching enhanced metadata from Stremio
 export const useEnhancedMetadata = (imdbId: string, type: string) => {
-  return useQuery({
+  const cacheKey = getEnhancedMetadataCacheKey(imdbId, type);
+  const query = useQuery({
     queryKey: ['enhancedMeta', imdbId, type],
     queryFn: async () => {
       console.log('Fetching enhanced metadata for:', imdbId);
@@ -73,9 +83,9 @@ export const useEnhancedMetadata = (imdbId: string, type: string) => {
     staleTime: 30 * 60 * 1000, // 30 minutes - metadata changes rarely
     gcTime: 2 * 60 * 60 * 1000, // 2 hours
     retry: 1, // Don't retry too much for external API
-    // Use cached data as initial data
     initialData: () => {
-      const cached = cacheStorage.getString(imdbId);
+      const cached =
+        cacheStorage.getString(cacheKey) || cacheStorage.getString(imdbId);
       if (cached) {
         try {
           return JSON.parse(cached);
@@ -85,15 +95,16 @@ export const useEnhancedMetadata = (imdbId: string, type: string) => {
       }
       return undefined;
     },
-    // Cache successful responses
-    meta: {
-      onSuccess: (data: any) => {
-        if (data && imdbId) {
-          cacheStorage.setString(imdbId, JSON.stringify(data));
-        }
-      },
-    },
+    initialDataUpdatedAt: 0,
   });
+
+  useEffect(() => {
+    if (query.data && imdbId) {
+      cacheStorage.setString(cacheKey, JSON.stringify(query.data));
+    }
+  }, [cacheKey, imdbId, query.data]);
+
+  return query;
 };
 
 // Combined hook for both info and metadata
@@ -102,6 +113,7 @@ export const useContentDetails = (link: string, providerValue: string) => {
   const {
     data: info,
     isLoading: infoLoading,
+    isFetching: infoFetching,
     error: infoError,
     refetch: refetchInfo,
   } = useContentInfo(link, providerValue);
@@ -110,6 +122,7 @@ export const useContentDetails = (link: string, providerValue: string) => {
   const {
     data: meta,
     isLoading: metaLoading,
+    isFetching: metaFetching,
     error: metaError,
     refetch: refetchMeta,
   } = useEnhancedMetadata(info?.imdbId || '', info?.type || '');
@@ -118,6 +131,7 @@ export const useContentDetails = (link: string, providerValue: string) => {
     info,
     meta,
     isLoading: infoLoading || metaLoading,
+    isRefetching: infoFetching || metaFetching,
     error: infoError || metaError,
     refetch: async () => {
       await Promise.all([refetchInfo(), refetchMeta()]);

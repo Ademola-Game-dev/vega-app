@@ -1,15 +1,23 @@
+import {useEffect} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {providerManager} from '../services/ProviderManager';
 import {cacheStorage} from '../storage';
 import {EpisodeLink} from '../providers/types';
 import {extensionManager} from '../services';
 
+const getEpisodesCacheKey = (episodesLink: string, providerValue: string) =>
+  `episodes:${providerValue}:${episodesLink}`;
+
 export const useEpisodes = (
   episodesLink: string | undefined,
   providerValue: string,
   enabled: boolean = true,
 ) => {
-  return useQuery<EpisodeLink[], Error>({
+  const cacheKey = episodesLink
+    ? getEpisodesCacheKey(episodesLink, providerValue)
+    : undefined;
+
+  const query = useQuery<EpisodeLink[], Error>({
     queryKey: ['episodes', episodesLink, providerValue],
     queryFn: async () => {
       if (!episodesLink || !providerValue || !enabled) {
@@ -33,15 +41,10 @@ export const useEpisodes = (
         providerValue: providerValue,
       });
 
-      // Cache successful responses
-      if (episodes && episodes.length > 0) {
-        cacheStorage.setString(episodesLink, JSON.stringify(episodes));
-      }
-
       return episodes || [];
     },
     enabled: enabled && !!episodesLink && !!providerValue,
-    staleTime: 15 * 60 * 1000, // 15 minutes
+    staleTime: 0,
     gcTime: 60 * 60 * 1000, // 1 hour (was cacheTime)
     retry: (failureCount, _error) => {
       // Don't retry on provider/network errors
@@ -51,13 +54,14 @@ export const useEpisodes = (
       return true;
     },
     retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-    // Use cached data as initial data
     initialData: () => {
-      if (!episodesLink) {
+      if (!cacheKey) {
         return undefined;
       }
 
-      const cached = cacheStorage.getString(episodesLink);
+      const cached =
+        cacheStorage.getString(cacheKey) ||
+        (episodesLink ? cacheStorage.getString(episodesLink) : undefined);
       if (cached) {
         try {
           return JSON.parse(cached);
@@ -67,11 +71,19 @@ export const useEpisodes = (
       }
       return undefined;
     },
-    // Prevent background refetches unless data is stale
-    refetchOnMount: false,
+    initialDataUpdatedAt: 0,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     refetchOnReconnect: 'always',
   });
+
+  useEffect(() => {
+    if (cacheKey && query.data && query.data.length > 0) {
+      cacheStorage.setString(cacheKey, JSON.stringify(query.data));
+    }
+  }, [cacheKey, query.data]);
+
+  return query;
 };
 
 // Hook for managing streams for external player

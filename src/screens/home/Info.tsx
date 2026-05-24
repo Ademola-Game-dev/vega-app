@@ -44,6 +44,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
     info,
     meta,
     isLoading: infoLoading,
+    isRefetching,
     error,
     refetch,
   } = useContentDetails(
@@ -54,6 +55,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
   // UI state
   const [threeDotsMenuOpen, setThreeDotsMenuOpen] = useState(false);
   const [readMore, setReadMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [menuPosition, setMenuPosition] = useState({top: -1000, right: 0});
   const [backgroundColor, setBackgroundColor] = useState('transparent');
   const [logoError, setLogoError] = useState(false);
@@ -156,11 +159,15 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
 
   // Optimized refresh handler
   const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshVersion(version => version + 1);
     try {
       await refetch();
     } catch (refreshError) {
       console.error('Error refreshing content:', refreshError);
       // Could show a toast or alert here if needed
+    } finally {
+      setRefreshing(false);
     }
   }, [refetch]);
 
@@ -497,7 +504,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                     </View>
                   ) : (
                     <SeasonList
-                      refreshing={false}
+                      refreshing={refreshing}
+                      refreshVersion={refreshVersion}
                       providerValue={route.params.provider || provider.value}
                       LinkList={filteredLinkList}
                       poster={{
@@ -523,7 +531,7 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                 colors={[primary]}
                 tintColor={primary}
                 progressBackgroundColor={'black'}
-                refreshing={false}
+                refreshing={refreshing || isRefetching}
                 onRefresh={handleRefresh}
               />
             }
