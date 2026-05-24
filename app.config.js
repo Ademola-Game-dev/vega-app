@@ -6,6 +6,7 @@ const hasIosGooglePlist = fs.existsSync('./GoogleService-Info.plist');
 module.exports = () => {
   const plugins = [
     './plugins/android-native-config.js',
+    './plugins/with-saf-copy-module.js',
     './plugins/with-android-notification-icons.js',
     './plugins/with-android-release-gradle.js',
     './plugins/with-android-signing.js',
@@ -95,7 +96,7 @@ module.exports = () => {
       autolinking: {exclude: ['expo-splash-screen']},
       plugins,
       slug: 'vega',
-      version: '3.3.5',
+      version: '3.4.0',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
@@ -107,7 +108,7 @@ module.exports = () => {
         minSdkVersion: 24,
         edgeToEdgeEnabled: true,
         package: 'com.vega',
-        versionCode: 164,
+        versionCode: 165,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
