@@ -13,13 +13,50 @@ export interface UpdateInfo {
 class UpdateProvidersService {
   private isUpdating = false;
   private updateCheckInterval: NodeJS.Timeout | null = null;
+  private readonly updateCheckIntervalMs = 6 * 60 * 60 * 1000;
+
+  private ensureInstalledProvidersHaveSource(
+    providers: ProviderExtension[],
+  ): ProviderExtension[] {
+    const defaultSource = extensionStorage.getProviderSource();
+    if (!defaultSource) {
+      return providers;
+    }
+
+    let hasChanges = false;
+    const normalized = providers.map(provider => {
+      if (provider.source?.author && provider.source?.url) {
+        return provider;
+      }
+
+      hasChanges = true;
+      return {
+        ...provider,
+        source: {
+          author: defaultSource.author,
+          url: defaultSource.url,
+        },
+      };
+    });
+
+    if (hasChanges) {
+      extensionStorage.setInstalledProviders(normalized);
+    }
+
+    return normalized;
+  }
 
   /**
    * Check for updates for all installed providers
    */
   async checkForUpdates(): Promise<UpdateInfo[]> {
     try {
-      const installedProviders = extensionStorage.getInstalledProviders();
+      // Ensure legacy users are migrated before running update checks.
+      await extensionManager.initialize();
+
+      const installedProviders = this.ensureInstalledProvidersHaveSource(
+        extensionStorage.getInstalledProviders(),
+      );
       const sources = new Map<string, ProviderExtension[]>();
       const sourceByAuthor = new Map<string, {author: string; url: string}>();
 
@@ -35,7 +72,7 @@ class UpdateProvidersService {
       for (const [author, source] of sourceByAuthor.entries()) {
         try {
           const availableProviders =
-            await extensionManager.fetchManifest(source);
+            await extensionManager.fetchManifest(source, true);
           sources.set(author, availableProviders);
         } catch (error) {
           console.warn(`Failed to fetch source ${author} for updates:`, error);
@@ -101,7 +138,10 @@ class UpdateProvidersService {
   /**
    * Update multiple providers with progress notifications
    */
-  async updateProviders(providers: ProviderExtension[]): Promise<{
+  async updateProviders(
+    providers: ProviderExtension[],
+    options?: {showNotifications?: boolean},
+  ): Promise<{
     updated: ProviderExtension[];
     failed: ProviderExtension[];
   }> {
@@ -109,13 +149,17 @@ class UpdateProvidersService {
       return {updated: [], failed: []};
     }
 
+    const shouldNotify = options?.showNotifications ?? true;
+
     this.isUpdating = true;
     const updated: ProviderExtension[] = [];
     const failed: ProviderExtension[] = [];
 
     try {
       // Show updating notification
-      await this.showUpdatingNotification(providers);
+      if (shouldNotify) {
+        await this.showUpdatingNotification(providers);
+      }
 
       for (const provider of providers) {
         const success = await this.updateProvider(provider);
@@ -127,7 +171,9 @@ class UpdateProvidersService {
       }
 
       // Show completion notification
-      await this.showUpdateCompleteNotification(updated, failed);
+      if (shouldNotify) {
+        await this.showUpdateCompleteNotification(updated, failed);
+      }
 
       return {updated, failed};
     } finally {
@@ -140,14 +186,12 @@ class UpdateProvidersService {
   async checkForUpdatesAndAutoUpdate(): Promise<UpdateInfo[]> {
     const updateInfos = await this.checkForUpdates();
     const availableUpdates = updateInfos.filter(info => info.hasUpdate);
-    if (
-      availableUpdates.length > 0 &&
-      settingsStorage.isNotificationsEnabled()
-    ) {
-      // Automatically start updating instead of just showing notification
+    if (availableUpdates.length > 0) {
+      // Automatically start updating instead of just showing notification.
       const providersToUpdate = availableUpdates.map(update => update.provider);
+      const showNotifications = settingsStorage.isNotificationsEnabled();
       // Don't await here to avoid blocking - let it run in background
-      this.updateProviders(providersToUpdate);
+      this.updateProviders(providersToUpdate, {showNotifications});
     }
     return updateInfos;
   }
@@ -163,8 +207,21 @@ class UpdateProvidersService {
    * Start automatic update checking
    */
   startAutomaticUpdateCheck(): void {
-    // Check immediately
-    this.checkForUpdatesAndAutoUpdate();
+    if (this.updateCheckInterval) {
+      clearInterval(this.updateCheckInterval);
+    }
+
+    // Check immediately.
+    this.checkForUpdatesAndAutoUpdate().catch(error => {
+      console.warn('Automatic provider update check failed:', error);
+    });
+
+    // Continue checking periodically in the background.
+    this.updateCheckInterval = setInterval(() => {
+      this.checkForUpdatesAndAutoUpdate().catch(error => {
+        console.warn('Scheduled provider update check failed:', error);
+      });
+    }, this.updateCheckIntervalMs);
   }
 
   /**
