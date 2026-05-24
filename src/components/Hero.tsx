@@ -156,6 +156,7 @@ const Hero = memo(({isDrawerOpen, onOpenDrawer}: HeroProps) => {
               placeholder={`Search in ${provider.display_name}`}
               className="w-[95%] px-4 h-10 rounded-full border-white border"
               placeholderTextColor="#999"
+              style={{textAlignVertical: 'center', paddingVertical: 0}}
             />
           </Animated.View>
         )}
