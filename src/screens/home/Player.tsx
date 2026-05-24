@@ -1,5 +1,8 @@
 import React, {useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import {
+  AppState,
+  AppStateStatus,
+  BackHandler,
   ScrollView,
   Text,
   ToastAndroid,
@@ -71,6 +74,25 @@ const exitFullScreen = () => {
   }
 };
 
+const applyFullscreenMode = (isFullScreenEnabled: boolean) => {
+  if (isFullScreenEnabled) {
+    goFullScreen();
+    return;
+  }
+
+  exitFullScreen();
+};
+
+const reapplyFullscreenMode = (isFullScreenEnabled: boolean) => {
+  applyFullscreenMode(isFullScreenEnabled);
+
+  if (Platform.OS === 'android' && isFullScreenEnabled) {
+    setTimeout(() => {
+      applyFullscreenMode(true);
+    }, 150);
+  }
+};
+
 const Player = ({route}: Props): React.JSX.Element => {
   const {primary} = useThemeStore(state => state);
   const {provider} = useContentStore();
@@ -79,7 +101,7 @@ const Player = ({route}: Props): React.JSX.Element => {
     useWatchHistoryStore();
 
   // Player ref
-  const playerRef: React.RefObject<VideoRef> = useRef(null);
+  const playerRef = useRef<VideoRef>(null as unknown as VideoRef);
   const hasSetInitialTracksRef = useRef(false);
 
   // Shared values for animations
@@ -183,12 +205,14 @@ const Player = ({route}: Props): React.JSX.Element => {
     showToast,
     isTextVisible,
     isFullScreen,
+    // setIsFullScreen,
     handleResizeMode,
     togglePlayerLock,
     toggleFullScreen,
     handleLockedScreenTap,
     unlockButtonTimerRef,
   } = usePlayerSettings();
+  const isFullScreenRef = useRef(isFullScreen);
 
   // Custom hook for progress handling
   const {videoPositionRef, handleProgress} = usePlayerProgress({
@@ -340,15 +364,47 @@ const Player = ({route}: Props): React.JSX.Element => {
   useFocusEffect(
     useCallback(() => {
       // This code now runs every time the screen is focused
-      if (isFullScreen) {
-        goFullScreen();
-      } else {
-        exitFullScreen();
-      }
+      reapplyFullscreenMode(isFullScreenRef.current);
 
-      return () => {};
-    }, [isFullScreen]),
+      return () => {
+        exitFullScreen();
+      };
+    }, []),
   );
+
+  useEffect(() => {
+    isFullScreenRef.current = isFullScreen;
+  }, [isFullScreen]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextAppState: AppStateStatus) => {
+        if (nextAppState === 'active') {
+          reapplyFullscreenMode(isFullScreenRef.current);
+        }
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isFullScreen]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        exitFullScreen();
+        navigation.goBack();
+        return true;
+      },
+    );
+
+    return () => {
+      subscription.remove();
+    };
+  }, [navigation]);
 
   // Reset track selections when stream changes
   useEffect(() => {
@@ -528,11 +584,7 @@ const Player = ({route}: Props): React.JSX.Element => {
 
   useEffect(() => {
     // Handle fullscreen toggle
-    if (isFullScreen) {
-      goFullScreen();
-    } else {
-      exitFullScreen();
-    }
+    reapplyFullscreenMode(isFullScreen);
   }, [isFullScreen]);
 
   // Memoized video player props
