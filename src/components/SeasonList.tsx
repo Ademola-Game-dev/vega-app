@@ -749,8 +749,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
       )}
 
       {/* Search and Sort Controls */}
-      {(filteredAndSortedEpisodes.length > 8 ||
-        filteredAndSortedDirectLinks.length > 8) && (
+      {(episodeList.length > 8 ||
+        (activeSeason?.directLinks && activeSeason.directLinks?.length > 8) ||
+        searchText) && (
         <View className="flex-row justify-between items-center mt-2">
           <TextInput
             placeholder="Search..."
