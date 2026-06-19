@@ -1,6 +1,6 @@
 {
   "name": "vega",
-  "version": "3.4.0",
+  "version": "3.4.1",
   "private": true,
   "scripts": {
     "android": "expo run:android",
@@ -25,6 +25,7 @@
     "@gorhom/bottom-sheet": "^4.6.4",
     "@himanshu8443/react-native-apk-installer": "github:himanshu8443/react-native-apk-installer",
     "@notifee/react-native": "^9.1.8",
+    "@preeternal/react-native-cookie-manager": "^6.3.3",
     "@react-native-community/blur": "^4.4.1",
     "@react-native-firebase/analytics": "^23.0.0",
     "@react-native-firebase/app": "^23.0.0",
@@ -70,7 +71,7 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
-    "react-native-video": "^6.19.1",
+    "react-native-video": "^6.19.2",
     "react-native-volume-manager": "^2.0.8",
     "react-native-webview": "13.15.0",
     "react-native-worklets-core": "^1.6.2",
