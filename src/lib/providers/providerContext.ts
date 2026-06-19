@@ -4,6 +4,7 @@ import {headers} from './headers';
 import * as cheerio from 'cheerio';
 import {ProviderContext} from './types';
 import * as Crypto from 'expo-crypto';
+import {openWebView} from '../services/wafResolver';
 
 /**
  * Context for provider functions.
@@ -16,4 +17,5 @@ export const providerContext: ProviderContext = {
   commonHeaders: headers,
   Crypto,
   cheerio,
+  openWebView,
 };

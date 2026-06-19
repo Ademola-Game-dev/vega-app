@@ -47,6 +47,7 @@ import {queryClient} from './lib/client';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import notifee from '@notifee/react-native';
 import notificationService from './lib/services/Notification';
+import WafWebViewDialog from './components/WafWebViewDialog';
 // Lazy-load Firebase modules so app runs without google-services files
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getAnalytics = (): any | null => {
@@ -579,6 +580,9 @@ const App = () => {
                 />
               </Stack.Navigator>
             </NavigationContainer>
+            {/* Global WAF / captcha solving dialog, triggered by providers via
+                providerContext.openWebView */}
+            <WafWebViewDialog />
           </SafeAreaView>
         </QueryClientProvider>
       </SafeAreaProvider>
