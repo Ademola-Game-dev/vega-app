@@ -55,7 +55,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Player'>;
 
 const goFullScreen = () => {
   if (Platform.OS === 'android') {
-    // Hide the navigation bar
     NavigationBar.setVisibilityAsync('hidden');
     // Make it "sticky immersive" (appears on swipe, then hides again)
     NavigationBar.setBehaviorAsync('overlay-swipe');
@@ -186,6 +185,8 @@ const Player = ({route}: Props): React.JSX.Element => {
     setTextTracks,
     processAudioTracks,
     processVideoTracks,
+    handleVideoLoad,
+    resetVideoTracks,
   } = useVideoSettings();
 
   // Custom hooks for player settings
@@ -411,11 +412,13 @@ const Player = ({route}: Props): React.JSX.Element => {
     setSelectedAudioTrackIndex(0);
     setSelectedTextTrackIndex(1000);
     setSelectedQualityIndex(1000);
+    resetVideoTracks();
   }, [
     selectedStream,
     setSelectedAudioTrackIndex,
     setSelectedTextTrackIndex,
     setSelectedQualityIndex,
+    resetVideoTracks,
   ]);
 
   // Initialize search query
@@ -610,7 +613,8 @@ const Player = ({route}: Props): React.JSX.Element => {
         },
       },
       onProgress: handleProgress,
-      onLoad: () => {
+      onLoad: (e: any) => {
+        handleVideoLoad(e?.naturalSize);
         playerRef?.current?.seek(watchedDuration);
         playerRef?.current?.resume();
         setPlaybackRate(1.0);
@@ -682,6 +686,7 @@ const Player = ({route}: Props): React.JSX.Element => {
       selectedVideoTrack,
       processAudioTracks,
       processVideoTracks,
+      handleVideoLoad,
     ],
   );
 
@@ -1156,6 +1161,7 @@ const Player = ({route}: Props): React.JSX.Element => {
                   <Text className="w-full text-center text-white text-lg font-extrabold">
                     Quality
                   </Text>
+
                   {videoTracks &&
                     videoTracks.map((track: any, i: any) => (
                       <TouchableOpacity
@@ -1169,23 +1175,21 @@ const Player = ({route}: Props): React.JSX.Element => {
                           setSelectedQualityIndex(i);
                         }}>
                         <Text
-                          className={'text-base font-semibold'}
+                          className={'text-base font-semibold pl-4'}
                           style={{
                             color:
                               selectedQualityIndex === i ? primary : 'white',
                           }}>
-                          {track.height + 'p'}
+                          {track.height + 'x' + track.width}
                         </Text>
                         <Text
-                          className={'text-sm italic'}
+                          className={''}
                           style={{
                             color:
                               selectedQualityIndex === i ? primary : 'white',
                           }}>
-                          {'Bitrate-' +
-                            track.bitrate +
-                            ' | Codec-' +
-                            (track?.codecs || 'unknown')}
+                          {!!track.bitrate && `| Bitrate ${track.bitrate}`}
+                          {!!track.codecs && `| Codec ${track.codecs}`}
                         </Text>
                         {selectedQualityIndex === i && (
                           <MaterialIcons name="check" size={20} color="white" />

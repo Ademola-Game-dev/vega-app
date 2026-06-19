@@ -1,5 +1,5 @@
 import {useQuery} from '@tanstack/react-query';
-import {useState, useEffect} from 'react';
+import {useState, useEffect, useMemo} from 'react';
 import {ToastAndroid} from 'react-native';
 import {providerManager} from '../services/ProviderManager';
 import {settingsStorage} from '../storage';
@@ -158,6 +158,11 @@ export const useVideoSettings = () => {
   const [textTracks, setTextTracks] = useState<any[]>([]);
   const [videoTracks, setVideoTracks] = useState<any[]>([]);
 
+  const [loadedVideoSize, setLoadedVideoSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+
   const [selectedAudioTrackIndex, setSelectedAudioTrackIndex] = useState(0);
   const [selectedTextTrackIndex, setSelectedTextTrackIndex] = useState(1000);
   const [selectedQualityIndex, setSelectedQualityIndex] = useState(1000);
@@ -188,22 +193,66 @@ export const useVideoSettings = () => {
   };
 
   const processVideoTracks = (tracks: any[]) => {
+
+    if (!tracks || tracks.length === 0) {
+      return;
+    }
     const uniqueMap = new Map();
     const uniqueTracks = tracks.filter(track => {
-      const key = `${track.bitrate}-${track.height}`;
+      const key = `bitrate-${track.bitrate}-quality ${track.height}`;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, true);
         return true;
       }
       return false;
     });
+        console.log('Processing video tracks:', uniqueTracks);
     setVideoTracks(uniqueTracks);
   };
+
+
+  const handleVideoLoad = (naturalSize?: {width?: number; height?: number}) => {
+    if (!naturalSize?.height) {
+      return;
+    }
+    setLoadedVideoSize({
+      width: naturalSize.width ?? 0,
+      height: naturalSize.height ?? 0,
+    });
+  };
+
+  // Clear everything when switching to a new stream/episode.
+  const resetVideoTracks = () => {
+    setVideoTracks([]);
+    setLoadedVideoSize(null);
+  };
+
+
+  const effectiveVideoTracks = useMemo(() => {
+    if (videoTracks.length > 0) {
+      return videoTracks;
+    }
+    if (loadedVideoSize?.height) {
+      return [
+        {
+          width: loadedVideoSize.width,
+          height: loadedVideoSize.height,
+          bitrate: 0,
+          codecs: '',
+          trackId: '0',
+          index: 0,
+          rotation: 0,
+          selected: true,
+        },
+      ];
+    }
+    return videoTracks;
+  }, [videoTracks, loadedVideoSize]);
 
   return {
     audioTracks,
     textTracks,
-    videoTracks,
+    videoTracks: effectiveVideoTracks,
     selectedAudioTrackIndex,
     selectedTextTrackIndex,
     selectedQualityIndex,
@@ -215,5 +264,7 @@ export const useVideoSettings = () => {
     setSelectedQualityIndex,
     processAudioTracks,
     processVideoTracks,
+    handleVideoLoad,
+    resetVideoTracks,
   };
 };
