@@ -17,33 +17,34 @@ import useThemeStore from '../../lib/zustand/themeStore';
 import * as Application from 'expo-application';
 import {notificationService} from '../../lib/services/Notification';
 
-// download update
+
+
+const deletePartialFile = async (filePath: string) => {
+  try {
+    if (await RNFS.exists(filePath)) await RNFS.unlink(filePath);
+  } catch {}
+};
+
 const downloadUpdate = async (url: string, name: string) => {
   console.log('downloading', url, name);
   await notificationService.requestPermission();
 
-  try {
-    if (await RNFS.exists(`${RNFS.DownloadDirectoryPath}/${name}`)) {
-      await notificationService.displayUpdateNotification({
-        id: 'downloadComplete',
-        title: 'Download Completed',
-        body: 'Tap to install',
-        data: {name: `${name}`, action: 'install'},
-      });
-      return;
-    }
-  } catch (error) {}
+  const filePath = `${RNFS.DownloadDirectoryPath}/${name}`;
+
+
+  let expectedSize = 0;
+
   const {promise} = RNFS.downloadFile({
     fromUrl: url,
     background: true,
     progressInterval: 1000,
     progressDivider: 1,
-    toFile: `${RNFS.DownloadDirectoryPath}/${name}`,
+    toFile: filePath,
     begin: res => {
-      console.log('begin', res.jobId, res.statusCode, res.headers);
+      expectedSize = res.contentLength;
+      console.log('begin', res.jobId, res.statusCode, res.contentLength);
     },
     progress: res => {
-      console.log('progress', res.bytesWritten, res.contentLength);
       notificationService.showUpdateProgress(
         'Downloading Update',
         `Version ${Application.nativeApplicationVersion} -> ${name}`,
@@ -55,17 +56,30 @@ const downloadUpdate = async (url: string, name: string) => {
       );
     },
   });
-  promise.then(async res => {
-    if (res.statusCode === 200) {
-      await notificationService.cancelNotification('updateProgress');
-      await notificationService.displayUpdateNotification({
-        id: 'downloadComplete',
-        title: 'Download Complete',
-        body: 'Tap to install',
-        data: {name, action: 'install'},
-      });
+
+  try {
+    const res = await promise;
+    await notificationService.cancelNotification('updateProgress');
+
+    if (res.statusCode !== 200 || res.bytesWritten < expectedSize) {
+      console.log(`[update] Download failed: status=${res.statusCode}, bytes=${res.bytesWritten}/${expectedSize}`);
+      await deletePartialFile(filePath);
+      ToastAndroid.show('Download failed, please try again', ToastAndroid.SHORT);
+      return;
     }
-  });
+
+    await notificationService.displayUpdateNotification({
+      id: 'downloadComplete',
+      title: 'Download Complete',
+      body: 'Tap to install',
+      data: {name, action: 'install'},
+    });
+  } catch (error) {
+    console.log('[update] Download error:', error);
+    await notificationService.cancelNotification('updateProgress');
+    await deletePartialFile(filePath);
+    ToastAndroid.show('Download failed, please try again', ToastAndroid.SHORT);
+  }
 };
 
 // handle check for update
@@ -90,13 +104,15 @@ export const checkForUpdate = async (
         {text: 'Cancel'},
         {
           text: 'Update',
-          onPress: () =>
-            autoDownload
-              ? downloadUpdate(
-                  data?.assets?.[2]?.browser_download_url,
-                  data.assets?.[2]?.name,
-                )
-              : Linking.openURL(data.html_url),
+          onPress: () => {
+            // Prioritize the universal APK since we don't check device architecture
+            const apkAsset = 
+              data?.assets?.find((a: any) => a.name?.endsWith('.apk') && a.name?.toLowerCase().includes('universal')) || 
+              data?.assets?.find((a: any) => a.name?.endsWith('.apk'));
+            return autoDownload && apkAsset
+              ? downloadUpdate(apkAsset.browser_download_url, apkAsset.name)
+              : Linking.openURL(data.html_url);
+          },
         },
       ]);
       console.log(
