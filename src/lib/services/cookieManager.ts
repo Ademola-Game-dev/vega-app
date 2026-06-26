@@ -45,7 +45,7 @@ export const getCookieObjects = async (
   }
   try {
     await CookieManager.flush();
-  } catch {}
+  } catch { }
   const stores = await Promise.all([
     CookieManager.get(url, true).catch(() => ({})),
     CookieManager.get(url, false).catch(() => ({})),
@@ -72,6 +72,39 @@ export const getCookies = async (
     map[cookie.name] = cookie.value;
   }
   return map;
+};
+
+// Deletes a specific cookie for a URL 
+export const deleteCookie = async (url: string, name: string): Promise<void> => {
+  const CookieManager = getCookieManager();
+  if (!CookieManager) return;
+  try {
+    try {
+      if (CookieManager.clearByName) {
+        await CookieManager.clearByName(url, name);
+      } else {
+        throw new Error('Not implemented');
+      }
+    } catch {
+      // Android workaround: set it to empty and expired
+      await CookieManager.set(url, {
+        name,
+        value: '',
+        expires: '1970-01-01T00:00:00.00Z',
+        path: '/',
+      });
+    }
+    await CookieManager.flush();
+  } catch (e) {
+    console.warn('[cookieManager] failed to delete cookie', e);
+  }
+};
+
+export const clearAllCookies = async (): Promise<void> => {
+  const CookieManager = getCookieManager();
+  if (CookieManager) {
+    await CookieManager.clearAll();
+  }
 };
 
 // Builds a Cookie header value from a name -> value map.
