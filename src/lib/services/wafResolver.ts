@@ -4,7 +4,7 @@ import type {
   OpenWebViewResult,
 } from '../providers/types';
 import {useWafStore} from '../zustand/wafStore';
-import {buildCookieString, getCookies, pickUserAgent} from './cookieManager';
+import {buildCookieString, getCookies, pickUserAgent, deleteCookie} from './cookieManager';
 
 /**
  * Opens a dialog WebView so the user can solve a WAF / captcha challenge
@@ -31,38 +31,70 @@ import {buildCookieString, getCookies, pickUserAgent} from './cookieManager';
  *    detected.
  *  - rejects if the user cancels the dialog or the optional `timeoutMs` elapses.
  */
-export const openWebView = async (
+// Dictionary to store pending WAF resolution promises by URL/cookie
+const pendingRequests: Record<string, Promise<OpenWebViewResult>> = {};
+
+export const openWebView = (
   url: string,
   options?: OpenWebViewOptions,
 ): Promise<OpenWebViewResult> => {
   if (!url) {
-    throw new Error('openWebView: a url is required');
+    return Promise.reject(new Error('openWebView: a url is required'));
   }
 
   const userAgent =
     pickUserAgent(options?.headers) || commonHeaders['User-Agent'];
 
-  // If not forced and the awaited cookie already exists, return it without a
-  // dialog. In force mode we always open.
-  if (!options?.force && options?.waitForCookie) {
-    const cookieMap = await getCookies(url);
-    if (cookieMap[options.waitForCookie]) {
-      return {
-        data: '',
-        cookies: buildCookieString(cookieMap),
-        cookieMap,
-        url,
-        userAgent,
-      };
-    }
+  // Extract domain/hostname so parallel requests to different paths on the same site are coalesced
+  const hostname = url.includes('://') ? url.split('/')[2] : url;
+  const cacheKey = options?.waitForCookie ? `${hostname}:${options.waitForCookie}` : hostname;
+  
+  // Request coalescing: if a WAF resolution is already pending for this URL/cookie, return its promise
+  // We ALWAYS coalesce, even if force: true, to prevent multiple dialogs for the same domain
+  if (cacheKey in pendingRequests) {
+    return pendingRequests[cacheKey];
   }
 
-  return new Promise<OpenWebViewResult>((resolve, reject) => {
-    useWafStore.getState().enqueue({
-      url,
-      resolve,
-      reject,
-      ...options,
+  const execute = async (): Promise<OpenWebViewResult> => {
+    // If not forced and the awaited cookie already exists, return it without a
+    // dialog. In force mode we always open.
+    if (!options?.force && options?.waitForCookie) {
+      const cookieMap = await getCookies(url);
+      if (cookieMap[options.waitForCookie]) {
+        return {
+          data: '',
+          cookies: buildCookieString(cookieMap),
+          cookieMap,
+          url,
+          userAgent,
+        };
+      }
+    } else if (options?.waitForCookie) {
+      // If it is forced, or if we are about to open the dialog, delete the old cookie
+      // because it is either expired or invalid (caused a 403).
+      await deleteCookie(url, options.waitForCookie);
+    }
+
+    return new Promise<OpenWebViewResult>((resolve, reject) => {
+      useWafStore.getState().enqueue({
+        url,
+        resolve,
+        reject,
+        ...options,
+      });
     });
+  };
+
+  const promise = execute();
+
+  // Always register the promise for coalescing, even if force: true
+  pendingRequests[cacheKey] = promise;
+
+  promise.finally(() => {
+    if (pendingRequests[cacheKey] === promise) {
+      delete pendingRequests[cacheKey];
+    }
   });
+
+  return promise;
 };

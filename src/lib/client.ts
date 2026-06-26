@@ -13,6 +13,9 @@ export const queryClient = new QueryClient({
         if (error.message?.includes('4')) {
           return false; // 4xx errors
         }
+        if (error.message?.includes('WAF')) {
+          return false; // Don't retry if user cancelled or failed captcha
+        }
 
         // Retry up to 3 times for other errors with exponential backoff
         return failureCount < 3;

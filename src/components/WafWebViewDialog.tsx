@@ -37,6 +37,8 @@ const WafWebViewDialog = () => {
   // Set while waiting for a fresh HTML capture before resolving.
   const pendingResolveRef = useRef(false);
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialCookiesRef = useRef<Record<string, string>>({});
+  const webViewReadyRef = useRef(false);
 
   const userAgent = pickUserAgent(request?.headers) || commonHeaders['User-Agent'];
 
@@ -46,6 +48,20 @@ const WafWebViewDialog = () => {
     pendingResolveRef.current = false;
     htmlRef.current = '';
     setLoading(true);
+    webViewReadyRef.current = false;
+    initialCookiesRef.current = {};
+    let cancelled = false;
+
+    // Snapshot existing cookies so we only auto-resolve on NEW/UPDATED ones
+    if (request) {
+      (async () => {
+        const cookieMap = await getCookies(request.url);
+        if (!cancelled) {
+          initialCookiesRef.current = cookieMap;
+          webViewReadyRef.current = true;
+        }
+      })();
+    }
   }, [request?.id]);
 
   // Resolve the active request with the captured page response + cookies.
@@ -133,11 +149,14 @@ const WafWebViewDialog = () => {
     let cancelled = false;
 
     const poll = async () => {
-      if (cancelled || settledRef.current) {
+      if (cancelled || settledRef.current || !webViewReadyRef.current) {
         return;
       }
       const cookieMap = await getCookies(url);
-      if (cookieMap[cookieName]) {
+      if (
+        cookieMap[cookieName] &&
+        cookieMap[cookieName] !== initialCookiesRef.current[cookieName]
+      ) {
         resolveWithPage();
       }
     };
