@@ -46,6 +46,11 @@ export enum SettingsKeys {
 
   // Telemetry (privacy)
   TELEMETRY_OPT_IN = 'telemetryOptIn',
+
+  // DNS over HTTPS
+  DOH_ENABLED = 'dohEnabled',
+  DOH_PROVIDER = 'dohProvider',
+  DOH_CUSTOM_URL = 'dohCustomUrl',
 }
 
 /**
@@ -270,6 +275,31 @@ export class SettingsStorage {
 
   setBool(key: string, value: boolean): void {
     mainStorage.setBool(key, value);
+  }
+  // DNS over HTTPS
+  isDohEnabled(): boolean {
+    const val = mainStorage.getBool(SettingsKeys.DOH_ENABLED);
+    return val === null ? true : (val as boolean);
+  }
+
+  setDohEnabled(enabled: boolean): void {
+    mainStorage.setBool(SettingsKeys.DOH_ENABLED, enabled);
+  }
+
+  getDohProvider(): string {
+    return mainStorage.getString(SettingsKeys.DOH_PROVIDER) || 'cloudflare';
+  }
+
+  setDohProvider(provider: string): void {
+    mainStorage.setString(SettingsKeys.DOH_PROVIDER, provider);
+  }
+
+  getDohCustomUrl(): string {
+    return mainStorage.getString(SettingsKeys.DOH_CUSTOM_URL) || '';
+  }
+
+  setDohCustomUrl(url: string): void {
+    mainStorage.setString(SettingsKeys.DOH_CUSTOM_URL, url);
   }
 }
 

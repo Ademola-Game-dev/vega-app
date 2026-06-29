@@ -48,6 +48,7 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import notifee from '@notifee/react-native';
 import notificationService from './lib/services/Notification';
 import WafWebViewDialog from './components/WafWebViewDialog';
+import {syncDohSettings} from './lib/services/dohService';
 // Lazy-load Firebase modules so app runs without google-services files
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getAnalytics = (): any | null => {
@@ -244,6 +245,11 @@ const App = () => {
     return () => {
       updateProvidersService.stopAutomaticUpdateCheck();
     };
+  }, []);
+
+  // Initialize DNS over HTTPS
+  useEffect(() => {
+    syncDohSettings().catch(e => console.warn('[DoH] Failed to sync settings:', e));
   }, []);
 
   function HomeStackScreen() {

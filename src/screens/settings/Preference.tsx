@@ -8,15 +8,16 @@ import {
   StatusBar,
   TextInput,
 } from 'react-native';
-import React, {useState} from 'react';
-import {settingsStorage} from '../../lib/storage';
+import React, { useState } from 'react';
+import { settingsStorage } from '../../lib/storage';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import RNReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useThemeStore from '../../lib/zustand/themeStore';
-import {Dropdown} from 'react-native-element-dropdown';
-import {themes} from '../../lib/constants';
+import { Dropdown } from 'react-native-element-dropdown';
+import { themes } from '../../lib/constants';
 import Constants from 'expo-constants';
 import DownloadLocationPreference from './components/DownloadLocationPreference';
+import { DOH_PROVIDERS, DohProviderValue, syncDohSettings } from '../../lib/services/dohService';
 // Lazy-load Firebase to allow running without google-services.json
 const getAnalytics = (): any | null => {
   try {
@@ -35,7 +36,7 @@ const getCrashlytics = (): any | null => {
 
 const Preferences = () => {
   const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase);
-  const {primary, setPrimary, isCustom, setCustom} = useThemeStore(
+  const { primary, setPrimary, isCustom, setCustom } = useThemeStore(
     state => state,
   );
   const [showRecentlyWatched, setShowRecentlyWatched] = useState(
@@ -91,6 +92,15 @@ const Preferences = () => {
 
   const [telemetryOptIn, setTelemetryOptIn] = useState<boolean>(
     settingsStorage.isTelemetryOptIn(),
+  );
+
+  const [dohProvider, setDohProvider] = useState<DohProviderValue>(
+    settingsStorage.isDohEnabled()
+      ? (settingsStorage.getDohProvider() as DohProviderValue)
+      : 'off',
+  );
+  const [dohCustomUrl, setDohCustomUrl] = useState(
+    settingsStorage.getDohCustomUrl(),
   );
 
   return (
@@ -162,7 +172,7 @@ const Preferences = () => {
                       borderWidth: 0,
                       marginTop: 4,
                     }}
-                    itemTextStyle={{color: 'white'}}
+                    itemTextStyle={{ color: 'white' }}
                     activeColor="#3A3A3A"
                     itemContainerStyle={{
                       backgroundColor: '#262626',
@@ -172,8 +182,8 @@ const Preferences = () => {
                       backgroundColor: '#262626',
                       borderWidth: 0,
                     }}
-                    iconStyle={{tintColor: 'white'}}
-                    placeholderStyle={{color: 'white'}}
+                    iconStyle={{ tintColor: 'white' }}
+                    placeholderStyle={{ color: 'white' }}
                     labelField="name"
                     valueField="color"
                     data={themes}
@@ -223,7 +233,7 @@ const Preferences = () => {
                         (await crashlytics().setCrashlyticsCollectionEnabled(
                           next,
                         ));
-                    } catch {}
+                    } catch { }
                     try {
                       const analytics = getAnalytics();
                       analytics &&
@@ -236,7 +246,7 @@ const Preferences = () => {
                           ad_user_data: next,
                           ad_personalization: next,
                         }));
-                    } catch {}
+                    } catch { }
                   }
                 }}
               />
@@ -387,6 +397,79 @@ const Preferences = () => {
 
         <DownloadLocationPreference primary={primary} />
 
+        {/* Network Section */}
+        <View className="mb-6">
+          <Text className="text-gray-400 text-sm mb-3">Network</Text>
+          <View className="bg-[#1A1A1A] rounded-xl overflow-hidden">
+            <View className="p-4 border-b border-[#262626]">
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-white text-base">DNS over HTTPS</Text>
+              </View>
+              <Text className="text-gray-500 text-xs mb-3">
+                Bypass ISP DNS blocking for providers
+              </Text>
+              <Dropdown
+                data={DOH_PROVIDERS as any}
+                labelField="label"
+                valueField="value"
+                value={dohProvider}
+                onChange={async (item: { label: string; value: DohProviderValue }) => {
+                  setDohProvider(item.value);
+                  if (item.value === 'off') {
+                    settingsStorage.setDohEnabled(false);
+                  } else {
+                    settingsStorage.setDohEnabled(true);
+                    settingsStorage.setDohProvider(item.value);
+                  }
+                  await syncDohSettings();
+                }}
+                style={{
+                  backgroundColor: '#262626',
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+                containerStyle={{
+                  backgroundColor: '#1A1A1A',
+                  borderColor: '#333',
+                  borderRadius: 8,
+                }}
+                activeColor="#333"
+                selectedTextStyle={{ color: 'white', fontSize: 14 }}
+                placeholderStyle={{ color: 'gray', fontSize: 14 }}
+                itemTextStyle={{ color: 'white', fontSize: 14 }}
+                placeholder="Select DNS Provider"
+              />
+            </View>
+            {dohProvider === 'custom' && (
+              <View className="p-4">
+                <Text className="text-gray-400 text-xs mb-2">Custom DoH URL</Text>
+                <TextInput
+                  style={{
+                    color: 'white',
+                    backgroundColor: '#262626',
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    fontSize: 14,
+                  }}
+                  placeholder="https://dns.example.com/dns-query"
+                  placeholderTextColor="gray"
+                  value={dohCustomUrl}
+                  onChangeText={setDohCustomUrl}
+                  onSubmitEditing={async () => {
+                    settingsStorage.setDohCustomUrl(dohCustomUrl);
+                    await syncDohSettings();
+                    ToastAndroid.show('Custom DNS applied', ToastAndroid.SHORT);
+                  }}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* Quality Settings */}
         <View className="mb-6">
           <Text className="text-gray-400 text-sm mb-3">Quality</Text>
@@ -420,6 +503,8 @@ const Preferences = () => {
             </View>
           </View>
         </View>
+
+
 
         <View className="h-16" />
       </View>
