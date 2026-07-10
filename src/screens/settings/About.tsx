@@ -15,6 +15,7 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import {MaterialCommunityIcons} from '@expo/vector-icons';
 import useThemeStore from '../../lib/zustand/themeStore';
 import * as Application from 'expo-application';
+import Constants from 'expo-constants';
 import {notificationService} from '../../lib/services/Notification';
 
 
@@ -165,50 +166,54 @@ const About = () => {
           </Text>
         </View>
 
-        {/* Auto Install Updates */}
-        <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center">
-          <Text className="text-white text-base">Auto Install Updates</Text>
-          <Switch
-            value={autoDownload}
-            onValueChange={() => {
-              setAutoDownload(!autoDownload);
-              settingsStorage.setAutoDownloadEnabled(!autoDownload);
-            }}
-            thumbColor={autoDownload ? primary : 'gray'}
-          />
-        </View>
-
-        {/* Auto Check Updates */}
-        <View className="bg-white/10 p-3 rounded-lg flex-row justify-between items-center">
-          <View className="flex-1 mr-2">
-            <Text className="text-white text-base">Check Updates on Start</Text>
-            <Text className="text-gray-400 text-sm">
-              Automatically check for updates when app starts
-            </Text>
-          </View>
-          <Switch
-            value={autoCheckUpdate}
-            onValueChange={() => {
-              setAutoCheckUpdate(!autoCheckUpdate);
-              settingsStorage.setAutoCheckUpdateEnabled(!autoCheckUpdate);
-            }}
-            thumbColor={autoCheckUpdate ? primary : 'gray'}
-          />
-        </View>
-
-        {/* Check Updates Button */}
-        <TouchableNativeFeedback
-          onPress={() => checkForUpdate(setUpdateLoading, autoDownload, true)}
-          disabled={updateLoading}
-          background={TouchableNativeFeedback.Ripple('#ffffff20', false)}>
-          <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center mt-4">
-            <View className="flex-row items-center space-x-3">
-              <MaterialCommunityIcons name="update" size={22} color="white" />
-              <Text className="text-white text-base">Check for Updates</Text>
+        {!Constants.expoConfig?.extra?.isPlayStore && (
+          <>
+            {/* Auto Install Updates */}
+            <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center">
+              <Text className="text-white text-base">Auto Install Updates</Text>
+              <Switch
+                value={autoDownload}
+                onValueChange={() => {
+                  setAutoDownload(!autoDownload);
+                  settingsStorage.setAutoDownloadEnabled(!autoDownload);
+                }}
+                thumbColor={autoDownload ? primary : 'gray'}
+              />
             </View>
-            <Feather name="chevron-right" size={20} color="white" />
-          </View>
-        </TouchableNativeFeedback>
+
+            {/* Auto Check Updates */}
+            <View className="bg-white/10 p-3 rounded-lg flex-row justify-between items-center">
+              <View className="flex-1 mr-2">
+                <Text className="text-white text-base">Check Updates on Start</Text>
+                <Text className="text-gray-400 text-sm">
+                  Automatically check for updates when app starts
+                </Text>
+              </View>
+              <Switch
+                value={autoCheckUpdate}
+                onValueChange={() => {
+                  setAutoCheckUpdate(!autoCheckUpdate);
+                  settingsStorage.setAutoCheckUpdateEnabled(!autoCheckUpdate);
+                }}
+                thumbColor={autoCheckUpdate ? primary : 'gray'}
+              />
+            </View>
+
+            {/* Check Updates Button */}
+            <TouchableNativeFeedback
+              onPress={() => checkForUpdate(setUpdateLoading, autoDownload, true)}
+              disabled={updateLoading}
+              background={TouchableNativeFeedback.Ripple('#ffffff20', false)}>
+              <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center mt-4">
+                <View className="flex-row items-center space-x-3">
+                  <MaterialCommunityIcons name="update" size={22} color="white" />
+                  <Text className="text-white text-base">Check for Updates</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color="white" />
+              </View>
+            </TouchableNativeFeedback>
+          </>
+        )}
       </View>
     </View>
   );

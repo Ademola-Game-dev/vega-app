@@ -11,6 +11,19 @@ import {
   getDownloadFileName,
   isSafDownloadLocation,
 } from './downloadLocation';
+import {torrentManager} from './torrentManager';
+
+export const activeTorrents = new Map<string, string>();
+export const cancelledTorrents = new Set<string>();
+
+export const cancelTorrentDownload = async (fileName: string) => {
+  const infoHash = activeTorrents.get(fileName);
+  if (infoHash) {
+    cancelledTorrents.add(infoHash);
+    await torrentManager.deleteTorrent(infoHash, true).catch(() => {});
+    activeTorrents.delete(fileName);
+  }
+};
 
 export const downloadManager = async ({
   title,
@@ -107,6 +120,104 @@ export const downloadManager = async ({
       // downloadStore.removeActiveDownload(fileName);
       // setAlreadyDownloaded(false);
       console.log('Downloading HLS');
+      return;
+    }
+
+    if (fileType === 'torrent' || url.startsWith('magnet:')) {
+      console.log('Downloading Torrent');
+      
+      const targetFolder = isSafLocation ? RNFS.CachesDirectoryPath : downloadLocation.path;
+      
+      try {
+        const addData = await torrentManager.addTorrent(url, {
+          output_folder: targetFolder,
+          file_name: fileName,
+        });
+        const infoHash = addData.infoHash;
+        activeTorrents.set(fileName, infoHash);
+        
+        const intervalId = setInterval(async () => {
+          if (cancelledTorrents.has(infoHash)) {
+            clearInterval(intervalId);
+            cancelledTorrents.delete(infoHash);
+            setDownloadActive(false);
+            return;
+          }
+          try {
+            const stats = await torrentManager.getStats(infoHash);
+            if (stats.state === 'downloading' || stats.state === 'finished' || stats.state === 'seeding') {
+              const progress = stats.progress;
+              const doneMB = Math.round(stats.totalDone / 1024 / 1024);
+              const totalMB = Math.round(stats.totalWanted / 1024 / 1024);
+              const body = `${doneMB} / ${totalMB} MB`;
+              
+              notificationService.showDownloadProgress(
+                title,
+                fileName,
+                progress,
+                body,
+                infoHash
+              );
+
+              if (progress >= 1.0 && stats.totalDone > 0) {
+                clearInterval(intervalId);
+                await torrentManager.deleteTorrent(infoHash, false);
+
+                if (isSafLocation) {
+                  try {
+                    const files = await RNFS.readDir(targetFolder);
+                    const downloadedFile = files.find(fileItem => {
+                      const nameWithoutExtension = fileItem.name
+                        .split('.')
+                        .slice(0, -1)
+                        .join('.');
+                      return nameWithoutExtension === fileName;
+                    });
+
+                    if (downloadedFile) {
+                      const ext = downloadedFile.name.split('.').pop() || 'mp4';
+                      await copyFileToSaf({
+                        fromPath: downloadedFile.path,
+                        directoryUri: downloadLocation.uri,
+                        fileName: fileName,
+                        fileType: ext,
+                      });
+                      await RNFS.unlink(downloadedFile.path).catch(() => {});
+                    }
+                  } catch (copyError) {
+                    console.error('Failed to copy torrent to SAF location', copyError);
+                  }
+                }
+                activeTorrents.delete(fileName);
+                setAlreadyDownloaded(true);
+                notificationService.showDownloadComplete(title, fileName);
+                setDownloadActive(false);
+              }
+            }
+          } catch (e: any) {
+             if (cancelledTorrents.has(infoHash)) {
+                clearInterval(intervalId);
+                cancelledTorrents.delete(infoHash);
+                setDownloadActive(false);
+                return;
+             }
+             clearInterval(intervalId);
+             activeTorrents.delete(fileName);
+             console.error('Torrent progress error:', e);
+             deleteDownload();
+             Alert.alert('Download failed', e.message || 'Failed to download');
+             notificationService.showDownloadFailed(title, fileName);
+             setDownloadActive(false);
+             setAlreadyDownloaded(false);
+          }
+        }, 1000);
+      } catch (err: any) {
+        console.error('Download init error:', err);
+        Alert.alert('Download failed', err.message || 'Failed to download');
+        notificationService.showDownloadFailed(title, fileName);
+        setDownloadActive(false);
+        setAlreadyDownloaded(false);
+      }
       return;
     }
     const targetFileName = getDownloadFileName(fileName, fileType);

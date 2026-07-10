@@ -5,8 +5,10 @@ import {
   TouchableNativeFeedback,
   ScrollView,
   Dimensions,
+  ToastAndroid,
+  TextInput,
 } from 'react-native';
-import React, {useCallback, useMemo} from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   settingsStorage,
   cacheStorageService,
@@ -18,7 +20,7 @@ import {
   NativeStackScreenProps,
   NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
-import {SettingsStackParamList, TabStackParamList} from '../../App';
+import { SettingsStackParamList, TabStackParamList } from '../../App';
 import {
   MaterialCommunityIcons,
   Feather,
@@ -26,20 +28,31 @@ import {
 } from '@expo/vector-icons';
 import useThemeStore from '../../lib/zustand/themeStore';
 import useWatchHistoryStore from '../../lib/zustand/watchHistrory';
-import Animated, {FadeInDown, FadeInUp, Layout} from 'react-native-reanimated';
-import {useNavigation} from '@react-navigation/native';
+import Animated, { FadeInDown, FadeInUp, Layout } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
+import { Dropdown } from 'react-native-element-dropdown';
+import { DOH_PROVIDERS, DohProviderValue, syncDohSettings } from '../../lib/services/dohService';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 
-const Settings = ({navigation}: Props) => {
+const Settings = ({ navigation }: Props) => {
   const tabNavigation =
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
-  const {primary} = useThemeStore(state => state);
-  const {provider, setProvider, installedProviders} = useContentStore(
+  const { primary } = useThemeStore(state => state);
+  const { provider, setProvider, installedProviders } = useContentStore(
     state => state,
   );
-  const {clearHistory} = useWatchHistoryStore(state => state);
+  const { clearHistory } = useWatchHistoryStore(state => state);
+
+  const [dohProvider, setDohProvider] = useState<DohProviderValue>(
+    settingsStorage.isDohEnabled()
+      ? (settingsStorage.getDohProvider() as DohProviderValue)
+      : 'off',
+  );
+  const [dohCustomUrl, setDohCustomUrl] = useState(
+    settingsStorage.getDohCustomUrl(),
+  );
 
   const handleProviderSelect = useCallback(
     (item: ProviderExtension) => {
@@ -62,9 +75,8 @@ const Settings = ({navigation}: Props) => {
       <TouchableOpacity
         key={item.value}
         onPress={() => handleProviderSelect(item)}
-        className={`mr-3 rounded-lg ${
-          isSelected ? 'bg-[#333333]' : 'bg-[#262626]'
-        }`}
+        className={`mr-3 rounded-lg ${isSelected ? 'bg-[#333333]' : 'bg-[#262626]'
+          }`}
         style={{
           width: Dimensions.get('window').width * 0.3, // Shows 2.5 items
           height: 65, // Increased height
@@ -79,7 +91,7 @@ const Settings = ({navigation}: Props) => {
             {item.display_name}
           </Text>
           {isSelected && (
-            <Text style={{position: 'absolute', top: 6, right: 6}}>
+            <Text style={{ position: 'absolute', top: 6, right: 6 }}>
               <MaterialIcons name="check-circle" size={16} color={primary} />
             </Text>
           )}
@@ -189,6 +201,81 @@ const Settings = ({navigation}: Props) => {
                   <Feather name="chevron-right" size={20} color="gray" />
                 </View>
               </TouchableNativeFeedback>
+            </View>
+          </View>
+        </AnimatedSection>
+
+        {/* Network Section */}
+        <AnimatedSection delay={150}>
+          <View className="mb-6">
+            <Text className="text-gray-400 text-sm mb-3">Network</Text>
+            <View className="bg-[#1A1A1A] rounded-xl overflow-hidden">
+              <View className="p-4 border-b border-[#262626]">
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-white text-base">DNS over HTTPS</Text>
+                </View>
+                <Text className="text-gray-500 text-xs mb-3">
+                  Bypass ISP DNS blocking for providers
+                </Text>
+                <Dropdown
+                  data={DOH_PROVIDERS as any}
+                  labelField="label"
+                  valueField="value"
+                  value={dohProvider}
+                  onChange={async (item: { label: string; value: DohProviderValue }) => {
+                    setDohProvider(item.value);
+                    if (item.value === 'off') {
+                      settingsStorage.setDohEnabled(false);
+                    } else {
+                      settingsStorage.setDohEnabled(true);
+                      settingsStorage.setDohProvider(item.value);
+                    }
+                    await syncDohSettings();
+                  }}
+                  style={{
+                    backgroundColor: '#262626',
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                  }}
+                  containerStyle={{
+                    backgroundColor: '#1A1A1A',
+                    borderColor: '#333',
+                    borderRadius: 8,
+                  }}
+                  activeColor="#333"
+                  selectedTextStyle={{ color: 'white', fontSize: 14 }}
+                  placeholderStyle={{ color: 'gray', fontSize: 14 }}
+                  itemTextStyle={{ color: 'white', fontSize: 14 }}
+                  placeholder="Select DNS Provider"
+                />
+              </View>
+              {dohProvider === 'custom' && (
+                <View className="p-4">
+                  <Text className="text-gray-400 text-xs mb-2">Custom DoH URL</Text>
+                  <TextInput
+                    style={{
+                      color: 'white',
+                      backgroundColor: '#262626',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      fontSize: 14,
+                    }}
+                    placeholder="https://dns.example.com/dns-query"
+                    placeholderTextColor="gray"
+                    value={dohCustomUrl}
+                    onChangeText={setDohCustomUrl}
+                    onSubmitEditing={async () => {
+                      settingsStorage.setDohCustomUrl(dohCustomUrl);
+                      await syncDohSettings();
+                      ToastAndroid.show('Custom DNS applied', ToastAndroid.SHORT);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+              )}
             </View>
           </View>
         </AnimatedSection>

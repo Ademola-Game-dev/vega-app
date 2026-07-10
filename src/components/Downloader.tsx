@@ -119,9 +119,10 @@ const DownloadComponent = ({
   // on holdPress external downloader
   const longPressDownload = async (link: string, type?: string) => {
     try {
+      const isTorrent = type === 'torrent' || link.startsWith('magnet:');
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
         data: link,
-        type: type || 'video/*',
+        type: isTorrent ? undefined : (type || 'video/*'),
       });
     } catch (error) {
       console.log(error);

@@ -48,11 +48,11 @@ export const useStream = ({
       }
 
       // Check for local downloaded file
-      if (routeParams?.primaryTitle && routeParams?.secondaryTitle) {
+      if (routeParams?.primaryTitle) {
         const file = (
           routeParams.primaryTitle +
-          routeParams.secondaryTitle +
-          activeEpisode.title
+          (routeParams.secondaryTitle || '') +
+          (activeEpisode?.title || '')
         ).replaceAll(/[^a-zA-Z0-9]/g, '_');
 
         const exists = await ifExists(file);
@@ -102,7 +102,11 @@ export const useStream = ({
   // Update selected stream when data changes
   useEffect(() => {
     if (streamData && streamData.length > 0) {
-      setSelectedStream(streamData[0]);
+      setSelectedStream(current => {
+        if (!current?.link) return streamData[0];
+        const stillExists = streamData.find(s => s.link === current.link);
+        return stillExists ? current : streamData[0];
+      });
 
       // Extract external subtitles
       const subs: any[] = [];

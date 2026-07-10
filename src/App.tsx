@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, { useEffect } from 'react';
 import './global.css';
 import Home from './screens/home/Home';
 import Info from './screens/home/Info';
@@ -11,8 +11,8 @@ import {
   NavigationContainer,
   createNavigationContainerRef,
 } from '@react-navigation/native';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Entypo from '@expo/vector-icons/Entypo';
 import 'react-native-reanimated';
@@ -21,18 +21,18 @@ import WebView from './screens/WebView';
 import SearchResults from './screens/SearchResults';
 import * as SystemUI from 'expo-system-ui';
 // import DisableProviders from './screens/settings/DisableProviders';
-import About, {checkForUpdate} from './screens/settings/About';
+import About, { checkForUpdate } from './screens/settings/About';
 import BootSplash from 'react-native-bootsplash';
-import {enableFreeze, enableScreens} from 'react-native-screens';
+import { enableFreeze, enableScreens } from 'react-native-screens';
 import Preferences from './screens/settings/Preference';
 import useThemeStore from './lib/zustand/themeStore';
-import {Dimensions, LogBox, ViewStyle} from 'react-native';
-import {EpisodeLink} from './lib/providers/types';
+import { Dimensions, LogBox, ViewStyle } from 'react-native';
+import { EpisodeLink } from './lib/providers/types';
 import RNReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import TabBarBackgound from './components/TabBarBackgound';
-import {TouchableOpacity} from 'react-native';
-import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
-import {StyleProp} from 'react-native';
+import { TouchableOpacity } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { StyleProp } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Downloads from './screens/settings/Downloads';
 import SeriesEpisodes from './screens/settings/SeriesEpisodes';
@@ -40,15 +40,15 @@ import WatchHistory from './screens/WatchHistory';
 import SubtitlePreference from './screens/settings/SubtitleSettings';
 import Extensions from './screens/settings/Extensions';
 import Constants from 'expo-constants';
-import {settingsStorage} from './lib/storage';
-import {updateProvidersService} from './lib/services/UpdateProviders';
-import {QueryClientProvider} from '@tanstack/react-query';
-import {queryClient} from './lib/client';
+import { settingsStorage } from './lib/storage';
+import { updateProvidersService } from './lib/services/UpdateProviders';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/client';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import notifee from '@notifee/react-native';
 import notificationService from './lib/services/Notification';
 import WafWebViewDialog from './components/WafWebViewDialog';
-import {syncDohSettings} from './lib/services/dohService';
+import { syncDohSettings } from './lib/services/dohService';
 // Lazy-load Firebase modules so app runs without google-services files
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const getAnalytics = (): any | null => {
@@ -76,29 +76,29 @@ const isLargeScreen = Dimensions.get('window').width > 768;
 
 export type HomeStackParamList = {
   Home: undefined;
-  Info: {link: string; provider?: string; poster?: string};
+  Info: { link: string; provider?: string; poster?: string };
   ScrollList: {
     filter: string;
     title?: string;
     providerValue?: string;
     isSearch: boolean;
   };
-  Webview: {link: string};
+  Webview: { link: string };
 };
 
 export type RootStackParamList = {
   TabStack:
-    | {
-        screen?: keyof TabStackParamList;
-        params?: {
-          screen?: string;
-          params?: {
-            screen?: string;
-            params?: any;
-          };
-        };
-      }
-    | undefined;
+  | {
+    screen?: keyof TabStackParamList;
+    params?: {
+      screen?: string;
+      params?: {
+        screen?: string;
+        params?: any;
+      };
+    };
+  }
+  | undefined;
   Player: {
     linkIndex: number;
     episodeList: EpisodeLink[];
@@ -126,21 +126,21 @@ export type SearchStackParamList = {
     providerValue?: string;
     isSearch: boolean;
   };
-  Info: {link: string; provider?: string; poster?: string};
-  SearchResults: {filter: string; availableProviders?: string[]};
+  Info: { link: string; provider?: string; poster?: string };
+  SearchResults: { filter: string; availableProviders?: string[] };
 };
 
 export type WatchListStackParamList = {
   WatchList: undefined;
-  Info: {link: string; provider?: string; poster?: string};
+  Info: { link: string; provider?: string; poster?: string };
 };
 
 export type WatchHistoryStackParamList = {
   WatchHistory: undefined;
-  Info: {link: string; provider?: string; poster?: string};
+  Info: { link: string; provider?: string; poster?: string };
   SeriesEpisodes: {
     series: string;
-    episodes: Array<{uri: string; size: number}>;
+    episodes: Array<{ uri: string; size: number }>;
     thumbnails: Record<string, string>;
   };
 };
@@ -176,7 +176,7 @@ const App = () => {
   const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
   const WatchHistoryStack =
     createNativeStackNavigator<WatchHistoryStackParamList>();
-  const {primary} = useThemeStore(state => state);
+  const { primary } = useThemeStore(state => state);
   const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase);
 
   const showTabBarLables = settingsStorage.showTabBarLabels();
@@ -190,11 +190,11 @@ const App = () => {
       try {
         const crashlytics = getCrashlytics();
         crashlytics && crashlytics().setCrashlyticsCollectionEnabled(optIn);
-      } catch {}
+      } catch { }
       try {
         const analytics = getAnalytics();
         analytics && analytics().setAnalyticsCollectionEnabled(optIn);
-      } catch {}
+      } catch { }
       try {
         const analytics = getAnalytics();
         analytics &&
@@ -204,13 +204,13 @@ const App = () => {
             ad_user_data: optIn,
             ad_personalization: optIn,
           });
-      } catch {}
+      } catch { }
 
       // Mark app open
       try {
         const analytics = getAnalytics();
         analytics && analytics().logAppOpen();
-      } catch {}
+      } catch { }
       // Example user property: theme
       try {
         const analytics = getAnalytics();
@@ -219,17 +219,17 @@ const App = () => {
             'theme_preference',
             primary ? 'custom' : 'default',
           );
-      } catch {}
+      } catch { }
 
       // Initial Crashlytics log
       try {
         const crashlytics = getCrashlytics();
         crashlytics && crashlytics().log('App mounted');
-      } catch {}
+      } catch { }
     }
 
-    const unsubscribe = notifee.onForegroundEvent(({type, detail}) => {
-      notificationService.actionHandler({type, detail});
+    const unsubscribe = notifee.onForegroundEvent(({ type, detail }) => {
+      notificationService.actionHandler({ type, detail });
     });
     return () => {
       unsubscribe();
@@ -370,17 +370,17 @@ const App = () => {
           tabBarShowLabel: showTabBarLables,
           tabBarStyle: !isLargeScreen
             ? {
-                position: 'absolute',
-                bottom: 0,
-                height: 55,
-                borderRadius: 0,
-                // backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                overflow: 'hidden',
-                elevation: 0,
-                borderTopWidth: 0,
-                paddingHorizontal: 0,
-                paddingTop: 5,
-              }
+              position: 'absolute',
+              bottom: 0,
+              height: 55,
+              borderRadius: 0,
+              // backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              overflow: 'hidden',
+              elevation: 0,
+              borderTopWidth: 0,
+              paddingHorizontal: 0,
+              paddingTop: 5,
+            }
             : {},
           tabBarBackground: () => <TabBarBackgound />,
           tabBarHideOnKeyboard: true,
@@ -412,10 +412,10 @@ const App = () => {
           component={HomeStackScreen}
           options={{
             title: 'Home',
-            tabBarIcon: ({focused, color, size}) => (
+            tabBarIcon: ({ focused, color, size }) => (
               <Animated.View
                 style={{
-                  transform: [{scale: focused ? 1.1 : 1}],
+                  transform: [{ scale: focused ? 1.1 : 1 }],
                 }}>
                 {focused ? (
                   <Ionicons name="home" color={color} size={size} />
@@ -431,10 +431,10 @@ const App = () => {
           component={SearchStackScreen}
           options={{
             title: 'Search',
-            tabBarIcon: ({focused, color, size}) => (
+            tabBarIcon: ({ focused, color, size }) => (
               <Animated.View
                 style={{
-                  transform: [{scale: focused ? 1.1 : 1}],
+                  transform: [{ scale: focused ? 1.1 : 1 }],
                 }}>
                 {focused ? (
                   <Ionicons name="search" color={color} size={size} />
@@ -450,10 +450,10 @@ const App = () => {
           component={WatchListStackScreen}
           options={{
             title: 'Watch List',
-            tabBarIcon: ({focused, color, size}) => (
+            tabBarIcon: ({ focused, color, size }) => (
               <Animated.View
                 style={{
-                  transform: [{scale: focused ? 1.1 : 1}],
+                  transform: [{ scale: focused ? 1.1 : 1 }],
                 }}>
                 {focused ? (
                   <Entypo name="folder-video" color={color} size={size} />
@@ -469,10 +469,10 @@ const App = () => {
           component={SettingsStackScreen}
           options={{
             title: 'Settings',
-            tabBarIcon: ({focused, color, size}) => (
+            tabBarIcon: ({ focused, color, size }) => (
               <Animated.View
                 style={{
-                  transform: [{scale: focused ? 1.1 : 1}],
+                  transform: [{ scale: focused ? 1.1 : 1 }],
                 }}>
                 {focused ? (
                   <Ionicons name="settings" color={color} size={size} />
@@ -488,8 +488,9 @@ const App = () => {
   }
 
   useEffect(() => {
-    if (settingsStorage.isAutoCheckUpdateEnabled()) {
-      checkForUpdate(() => {}, settingsStorage.isAutoDownloadEnabled(), false);
+    const isPlayStore = Constants.expoConfig?.extra?.isPlayStore;
+    if (!isPlayStore && settingsStorage.isAutoCheckUpdateEnabled()) {
+      checkForUpdate(() => { }, settingsStorage.isAutoDownloadEnabled(), false);
     }
   }, []);
 
@@ -505,12 +506,12 @@ const App = () => {
               bottom: 'additive',
             }}
             className="flex-1"
-            style={{backgroundColor: 'black'}}>
+            style={{ backgroundColor: 'black' }}>
             <NavigationContainer
               ref={navigationRef}
               onReady={async () => {
                 // Hide bootsplash
-                await BootSplash.hide({fade: true});
+                await BootSplash.hide({ fade: true });
                 // Track initial screen
                 if (hasFirebase) {
                   try {
@@ -523,7 +524,7 @@ const App = () => {
                           screen_class: 'Navigation',
                         }));
                     }
-                  } catch {}
+                  } catch { }
                 }
               }}
               onStateChange={async () => {
@@ -538,7 +539,7 @@ const App = () => {
                           screen_class: 'Navigation',
                         }));
                     }
-                  } catch {}
+                  } catch { }
                 }
               }}
               theme={{
@@ -576,13 +577,13 @@ const App = () => {
                   animation: 'ios_from_right',
                   animationDuration: 200,
                   freezeOnBlur: true,
-                  contentStyle: {backgroundColor: 'transparent'},
+                  contentStyle: { backgroundColor: 'transparent' },
                 }}>
                 <Stack.Screen name="TabStack" component={TabStack} />
                 <Stack.Screen
                   name="Player"
                   component={Player}
-                  options={{orientation: 'landscape'}}
+                  options={{ orientation: 'landscape' }}
                 />
               </Stack.Navigator>
             </NavigationContainer>

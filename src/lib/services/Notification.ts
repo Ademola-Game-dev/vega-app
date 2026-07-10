@@ -8,7 +8,8 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import {cancelHlsDownload} from '../hlsDownloader2';
 import RNApkInstaller from '@himanshu8443/react-native-apk-installer';
 import {deleteDownloadedFileByBaseName} from '../downloadLocation';
-
+import {torrentManager} from '../torrentManager';
+import {cancelTorrentDownload} from '../downloader';
 export interface NotificationOptions {
   id: string;
   title: string;
@@ -190,7 +191,7 @@ class NotificationService {
     fileName: string,
     progress: number,
     progressText: string,
-    jobId?: number,
+    jobId?: number | string,
   ): Promise<void> {
     await this.displayDownloadNotification({
       id: fileName,
@@ -266,8 +267,13 @@ class NotificationService {
       type === EventType.ACTION_PRESS &&
       detail.pressAction?.id === detail.notification?.data?.fileName
     ) {
-      // console.log('Cancel download');
-      RNFS.stopDownload(Number(detail.notification?.data?.jobId));
+      const jobId = detail.notification?.data?.jobId;
+      console.log('Cancel download pressed, jobId:', jobId);
+      if (jobId && String(jobId).length >= 40) {
+        cancelTorrentDownload(detail.notification?.data?.fileName!);
+      } else {
+        RNFS.stopDownload(Number(jobId));
+      }
       cancelHlsDownload(detail.notification?.data?.fileName!);
       // FFMPEGKIT CANCEL
       // FFmpegKit.cancel(Number(detail.notification?.data?.jobId));

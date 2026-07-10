@@ -5,8 +5,11 @@ const hasIosGooglePlist = fs.existsSync('./GoogleService-Info.plist');
 
 module.exports = () => {
   const plugins = [
+    './plugins/with-custom-native-modules.js',
     './plugins/android-native-config.js',
     './plugins/with-saf-copy-module.js',
+    './plugins/with-proguard-rules.js',
+    './plugins/with-jvm-args.js',
     './plugins/with-android-notification-icons.js',
     './plugins/with-android-release-gradle.js',
     './plugins/with-android-signing.js',
@@ -85,11 +88,14 @@ module.exports = () => {
       },
     ],
   ];
+  const IS_PLAYSTORE = process.env.APP_VARIANT === 'playstore';
+  const PACKAGE_NAME = IS_PLAYSTORE ? 'vega.app' : 'com.vega';
+  const APP_SCHEME = IS_PLAYSTORE ? 'vegaapp' : 'com.vega';
 
   return {
     expo: {
       name: 'Vega',
-      scheme: 'com.vega',
+      scheme: APP_SCHEME,
       displayName: 'Vega',
       jsEngine: 'hermes',
       newArchEnabled: true,
@@ -105,9 +111,9 @@ module.exports = () => {
         ...(hasAndroidGoogleServices
           ? {googleServicesFile: './google-services.json'}
           : {}),
-        minSdkVersion: 24,
+        minSdkVersion: 28,
         edgeToEdgeEnabled: true,
-        package: 'com.vega',
+        package: PACKAGE_NAME,
         versionCode: 170,
         permissions: [
           'FOREGROUND_SERVICE',
@@ -146,6 +152,7 @@ module.exports = () => {
       platforms: ['ios', 'android'],
       extra: {
         hasFirebase: hasAndroidGoogleServices || hasIosGooglePlist,
+        isPlayStore: IS_PLAYSTORE,
       },
     },
   };

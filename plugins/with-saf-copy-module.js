@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const {withDangerousMod, withMainApplication} = require('@expo/config-plugins');
 
-const SAF_COPY_MODULE_SOURCE = `package com.vega
+const SAF_COPY_MODULE_SOURCE = (packageName) => `package ${packageName}
 
 import android.net.Uri
 import com.facebook.react.bridge.NativeModule
@@ -92,7 +92,7 @@ function withSafCopyModule(config) {
       );
 
       fs.mkdirSync(path.dirname(targetFile), {recursive: true});
-      fs.writeFileSync(targetFile, SAF_COPY_MODULE_SOURCE, 'utf8');
+      fs.writeFileSync(targetFile, SAF_COPY_MODULE_SOURCE(packageName), 'utf8');
 
       return cfg;
     },
