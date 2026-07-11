@@ -8,22 +8,22 @@ import {
   Switch,
 } from 'react-native';
 // import pkg from '../../../package.json';
-import React, {useState} from 'react';
-import {Feather} from '@expo/vector-icons';
-import {settingsStorage} from '../../lib/storage';
+import React, { useState } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { settingsStorage } from '../../lib/storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import {MaterialCommunityIcons} from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useThemeStore from '../../lib/zustand/themeStore';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
-import {notificationService} from '../../lib/services/Notification';
+import { notificationService } from '../../lib/services/Notification';
 
 
 
 const deletePartialFile = async (filePath: string) => {
   try {
     if (await RNFS.exists(filePath)) await RNFS.unlink(filePath);
-  } catch {}
+  } catch { }
 };
 
 const downloadUpdate = async (url: string, name: string) => {
@@ -35,7 +35,7 @@ const downloadUpdate = async (url: string, name: string) => {
 
   let expectedSize = 0;
 
-  const {promise} = RNFS.downloadFile({
+  const { promise } = RNFS.downloadFile({
     fromUrl: url,
     background: true,
     progressInterval: 1000,
@@ -73,7 +73,7 @@ const downloadUpdate = async (url: string, name: string) => {
       id: 'downloadComplete',
       title: 'Download Complete',
       body: 'Tap to install',
-      data: {name, action: 'install'},
+      data: { name, action: 'install' },
     });
   } catch (error) {
     console.log('[update] Download error:', error);
@@ -102,13 +102,13 @@ export const checkForUpdate = async (
     if (compareVersions(localVersion || '', data.tag_name.replace('v', ''))) {
       ToastAndroid.show('New update available', ToastAndroid.SHORT);
       Alert.alert(`Update v${localVersion} -> ${data.tag_name}`, data.body, [
-        {text: 'Cancel'},
+        { text: 'Cancel' },
         {
           text: 'Update',
           onPress: () => {
             // Prioritize the universal APK since we don't check device architecture
-            const apkAsset = 
-              data?.assets?.find((a: any) => a.name?.endsWith('.apk') && a.name?.toLowerCase().includes('universal')) || 
+            const apkAsset =
+              data?.assets?.find((a: any) => a.name?.endsWith('.apk') && a.name?.toLowerCase().includes('universal')) ||
               data?.assets?.find((a: any) => a.name?.endsWith('.apk'));
             return autoDownload && apkAsset
               ? downloadUpdate(apkAsset.browser_download_url, apkAsset.name)
@@ -139,7 +139,7 @@ export const checkForUpdate = async (
 };
 
 const About = () => {
-  const {primary} = useThemeStore(state => state);
+  const { primary } = useThemeStore(state => state);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [autoDownload, setAutoDownload] = useState(
     settingsStorage.isAutoDownloadEnabled(),
@@ -157,7 +157,7 @@ const About = () => {
         </Text>
       </View>
 
-      <View className="p-4 space-y-4 pb-24">
+      <View className="p-4 gap-4 pb-24">
         {/* Version */}
         <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center">
           <Text className="text-white text-base">Version</Text>
@@ -204,7 +204,7 @@ const About = () => {
               onPress={() => checkForUpdate(setUpdateLoading, autoDownload, true)}
               disabled={updateLoading}
               background={TouchableNativeFeedback.Ripple('#ffffff20', false)}>
-              <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center mt-4">
+              <View className="bg-white/10 p-4 rounded-lg flex-row justify-between items-center">
                 <View className="flex-row items-center space-x-3">
                   <MaterialCommunityIcons name="update" size={22} color="white" />
                   <Text className="text-white text-base">Check for Updates</Text>
