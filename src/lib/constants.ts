@@ -7,7 +7,13 @@ export const FLAGS = {
   ITALY: 'https://utfs.io/f/ImOWJajUmXfynpGlTaXrTMAELcs2W76PyY4IRJVBXCHOofa5',
 };
 
-export const defaultDownloadFolder = RNFS.DownloadDirectoryPath + '/vega';
+import Constants from 'expo-constants';
+
+const isPlayStore = Constants.expoConfig?.extra?.isPlayStore;
+
+export const defaultDownloadFolder = isPlayStore 
+  ? RNFS.ExternalDirectoryPath + '/vega' 
+  : RNFS.DownloadDirectoryPath + '/vega';
 export const downloadFolder = defaultDownloadFolder;
 
 export const themes: {name: string; color: string}[] = [

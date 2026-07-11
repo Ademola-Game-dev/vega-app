@@ -60,7 +60,7 @@ module.exports = () => {
           ],
           enableProguardInReleaseBuilds: true,
           splits: {
-            abi: {enable: true, universalApk: true},
+            abi: { enable: true, universalApk: true },
           },
           buildVariants: {
             release: {
@@ -74,7 +74,7 @@ module.exports = () => {
                 },
               },
             },
-            debug: {minifyEnabled: false, debuggable: true},
+            debug: { minifyEnabled: false, debuggable: true },
           },
         },
         ios: {},
@@ -99,22 +99,22 @@ module.exports = () => {
       displayName: 'Vega',
       jsEngine: 'hermes',
       newArchEnabled: true,
-      autolinking: {exclude: ['expo-splash-screen']},
+      autolinking: { exclude: ['expo-splash-screen'] },
       plugins,
       slug: 'vega',
-      version: '3.4.2',
+      version: '3.4.4',
       userInterfaceStyle: 'dark',
       experiments: {
         reactCompiler: true,
       },
       android: {
         ...(hasAndroidGoogleServices
-          ? {googleServicesFile: './google-services.json'}
+          ? { googleServicesFile: './google-services.json' }
           : {}),
         minSdkVersion: 28,
         edgeToEdgeEnabled: true,
         package: PACKAGE_NAME,
-        versionCode: 170,
+        versionCode: 176,
         permissions: [
           'FOREGROUND_SERVICE',
           'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
@@ -125,16 +125,24 @@ module.exports = () => {
           'WRITE_EXTERNAL_STORAGE',
           'WRITE_SETTINGS',
         ],
+        blockedPermissions: IS_PLAYSTORE
+          ? [
+            'REQUEST_INSTALL_PACKAGES',
+            'MANAGE_EXTERNAL_STORAGE',
+            'READ_MEDIA_VIDEO',
+            'com.google.android.gms.permission.AD_ID',
+          ]
+          : [],
         manifestPermissions: [
-          {name: 'READ_EXTERNAL_STORAGE', maxSdkVersion: 32},
-          {name: 'WRITE_EXTERNAL_STORAGE', maxSdkVersion: 32},
+          { name: 'READ_EXTERNAL_STORAGE', maxSdkVersion: 32 },
+          { name: 'WRITE_EXTERNAL_STORAGE', maxSdkVersion: 32 },
         ],
         queries: [
-          {action: 'VIEW', data: {scheme: 'http'}},
-          {action: 'VIEW', data: {scheme: 'https'}},
-          {action: 'VIEW', data: {scheme: 'vlc'}},
+          { action: 'VIEW', data: { scheme: 'http' } },
+          { action: 'VIEW', data: { scheme: 'https' } },
+          { action: 'VIEW', data: { scheme: 'vlc' } },
         ],
-        config: {requestLegacyExternalStorage: true},
+        config: { requestLegacyExternalStorage: true },
         allowBackup: true,
         icon: './assets/icon.png',
         adaptiveIcon: {
@@ -146,7 +154,7 @@ module.exports = () => {
       },
       ios: {
         ...(hasIosGooglePlist
-          ? {googleServicesFile: './GoogleService-Info.plist'}
+          ? { googleServicesFile: './GoogleService-Info.plist' }
           : {}),
       },
       platforms: ['ios', 'android'],
