@@ -17,7 +17,7 @@
     "expo-font": "13.0.4"
   },
   "dependencies": {
-    "@8man/react-native-media-console": "^2.2.4-alpha.33",
+    "@8man/react-native-media-console": "^2.2.4-alpha.34",
     "@dr.pogodin/react-native-fs": "^2.34.0",
     "@expo/config-plugins": "~54.0.4",
     "@expo/metro-runtime": "~6.1.2",
@@ -52,7 +52,9 @@
     "expo-system-ui": "~6.0.9",
     "expo-updates": "~29.0.15",
     "expo-video-thumbnails": "~10.0.8",
+    "i": "^0.3.7",
     "nativewind": "^4.2.1",
+    "npm": "^11.18.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-bootsplash": "^6.3.7",
