@@ -22,6 +22,7 @@ export const cancelTorrentDownload = async (fileName: string) => {
     cancelledTorrents.add(infoHash);
     await torrentManager.deleteTorrent(infoHash, true).catch(() => {});
     activeTorrents.delete(fileName);
+    notificationService.stopForegroundTask();
   }
 };
 
@@ -56,6 +57,7 @@ export const downloadManager = async ({
     return;
   }
   setDownloadActive(true);
+  notificationService.startForegroundTask();
   // if (activeDownloads.length > 0) {
   //   notifee.displayNotification({
   //     id: 'downloadQueue',
@@ -141,6 +143,7 @@ export const downloadManager = async ({
             clearInterval(intervalId);
             cancelledTorrents.delete(infoHash);
             setDownloadActive(false);
+            notificationService.stopForegroundTask();
             return;
           }
           try {
@@ -192,6 +195,7 @@ export const downloadManager = async ({
                 setAlreadyDownloaded(true);
                 notificationService.showDownloadComplete(title, fileName);
                 setDownloadActive(false);
+                notificationService.stopForegroundTask();
               }
             }
           } catch (e: any) {
@@ -199,6 +203,7 @@ export const downloadManager = async ({
                 clearInterval(intervalId);
                 cancelledTorrents.delete(infoHash);
                 setDownloadActive(false);
+                notificationService.stopForegroundTask();
                 return;
              }
              clearInterval(intervalId);
@@ -209,6 +214,7 @@ export const downloadManager = async ({
              notificationService.showDownloadFailed(title, fileName);
              setDownloadActive(false);
              setAlreadyDownloaded(false);
+             notificationService.stopForegroundTask();
           }
         }, 1000);
       } catch (err: any) {
@@ -217,6 +223,7 @@ export const downloadManager = async ({
         notificationService.showDownloadFailed(title, fileName);
         setDownloadActive(false);
         setAlreadyDownloaded(false);
+        notificationService.stopForegroundTask();
       }
       return;
     }

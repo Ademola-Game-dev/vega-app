@@ -15,6 +15,13 @@ module.exports = function withAndroidSigning(config) {
       const buildGradle = path.join(appDir, 'build.gradle');
       const signingGradle = path.join(appDir, 'with-signing.gradle');
 
+      // Auto-copy keystore to android/app if it exists
+      const keystoreSrc = path.join(projectRoot, 'vega-key.keystore');
+      const keystoreDest = path.join(appDir, 'vega-key.keystore');
+      if (fs.existsSync(keystoreSrc)) {
+        fs.copyFileSync(keystoreSrc, keystoreDest);
+      }
+
       // Create signing gradle that extends signingConfigs during android block
       const signingContent = `// Auto-applied by with-android-signing config plugin
 android {

@@ -69,6 +69,11 @@ const getCrashlytics = (): any | null => {
   }
 };
 
+notifee.registerForegroundService(() => {
+  return new Promise(() => {
+  });
+});
+
 enableScreens(true);
 enableFreeze(true);
 

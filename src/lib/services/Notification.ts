@@ -2,6 +2,7 @@ import notifee, {
   AndroidImportance,
   EventDetail,
   EventType,
+  AndroidForegroundServiceType,
 } from '@notifee/react-native';
 import {settingsStorage} from '../storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
@@ -27,6 +28,7 @@ export interface NotificationOptions {
     };
   }>;
   onlyAlertOnce?: boolean;
+  asForegroundService?: boolean;
 }
 
 export interface ChannelOptions {
@@ -131,6 +133,8 @@ class NotificationService {
         progress: options.progress,
         actions: options.actions,
         onlyAlertOnce: options.onlyAlertOnce || false,
+        asForegroundService: options.asForegroundService,
+        foregroundServiceTypes: options.asForegroundService ? [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC] : undefined,
       },
     });
   }
@@ -167,6 +171,20 @@ class NotificationService {
     await notifee.cancelAllNotifications();
   }
 
+  private _activeForegroundTasks = 0;
+
+  startForegroundTask() {
+    this._activeForegroundTasks++;
+  }
+
+  async stopForegroundTask() {
+    this._activeForegroundTasks--;
+    if (this._activeForegroundTasks <= 0) {
+      this._activeForegroundTasks = 0;
+      await notifee.stopForegroundService();
+    }
+  }
+
   /**
    * Helper method to show download starting notification
    */
@@ -180,6 +198,7 @@ class NotificationService {
         current: 0,
         indeterminate: true,
       },
+      asForegroundService: true,
     });
   }
 
@@ -212,6 +231,7 @@ class NotificationService {
         },
       ],
       onlyAlertOnce: true,
+      asForegroundService: true,
     });
   }
 

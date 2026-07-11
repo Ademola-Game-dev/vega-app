@@ -11,6 +11,7 @@ module.exports = () => {
     './plugins/with-proguard-rules.js',
     './plugins/with-jvm-args.js',
     './plugins/with-android-notification-icons.js',
+    './plugins/with-notifee-service.js',
     './plugins/with-android-release-gradle.js',
     './plugins/with-android-signing.js',
     './plugins/with-android-okhttp.js',
@@ -117,6 +118,7 @@ module.exports = () => {
         versionCode: 176,
         permissions: [
           'FOREGROUND_SERVICE',
+          'FOREGROUND_SERVICE_DATA_SYNC',
           'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
           'INTERNET',
           'MANAGE_EXTERNAL_STORAGE',
