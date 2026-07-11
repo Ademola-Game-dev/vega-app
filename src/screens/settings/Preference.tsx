@@ -205,18 +205,18 @@ const Preferences = () => {
             </View>
 
             {/* Analytics & Crashlytics Opt-In */}
-            <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
-              <Text className="text-white text-base">
-                Usage & Crash Reports
-              </Text>
-              <Switch
-                thumbColor={telemetryOptIn ? primary : 'gray'}
-                value={telemetryOptIn}
-                onValueChange={async () => {
-                  const next = !telemetryOptIn;
-                  setTelemetryOptIn(next);
-                  settingsStorage.setTelemetryOptIn(next);
-                  if (hasFirebase) {
+            {hasFirebase && (
+              <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
+                <Text className="text-white text-base">
+                  Usage & Crash Reports
+                </Text>
+                <Switch
+                  thumbColor={telemetryOptIn ? primary : 'gray'}
+                  value={telemetryOptIn}
+                  onValueChange={async () => {
+                    const next = !telemetryOptIn;
+                    setTelemetryOptIn(next);
+                    settingsStorage.setTelemetryOptIn(next);
                     try {
                       const crashlytics = getCrashlytics();
                       crashlytics &&
@@ -237,10 +237,10 @@ const Preferences = () => {
                           ad_personalization: next,
                         }));
                     } catch { }
-                  }
-                }}
-              />
-            </View>
+                  }}
+                />
+              </View>
+            )}
 
             {/* Show Tab Bar Labels */}
             <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
