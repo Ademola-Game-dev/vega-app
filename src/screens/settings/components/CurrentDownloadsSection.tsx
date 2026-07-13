@@ -7,9 +7,7 @@ import useDownloadsStore, {
 import CurrentDownloadRow from './CurrentDownloadRow';
 
 const CurrentDownloadsSection = ({primary}: {primary: string}) => {
-  const downloads = useDownloadsStore(selectCurrentDownloads).sort(
-    (a, b) => b.updatedAt - a.updatedAt,
-  );
+  const downloads = useDownloadsStore(selectCurrentDownloads);
 
   if (downloads.length === 0) {
     return null;

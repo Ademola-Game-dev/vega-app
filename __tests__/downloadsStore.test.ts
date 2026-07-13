@@ -103,6 +103,38 @@ describe('downloads store', () => {
     });
   });
 
+  it('keeps active downloads in creation order as progress updates arrive', () => {
+    const store = useDownloadsStore.getState();
+    store.enqueueDownload({
+      id: 'first',
+      title: 'First',
+      type: 'movie',
+      url: 'https://example.com/first.mp4',
+      createdAt: 10,
+    });
+    store.enqueueDownload({
+      id: 'second',
+      title: 'Second',
+      type: 'movie',
+      url: 'https://example.com/second.mp4',
+      createdAt: 20,
+    });
+
+    store.updateProgress('second', 20, 100, 10);
+    store.updateProgress('first', 10, 100, 10);
+
+    expect(
+      selectCurrentDownloads(useDownloadsStore.getState()).map(item => item.id),
+    ).toEqual(['first', 'second']);
+
+    store.updateProgress('first', 30, 100, 10);
+    store.updateProgress('second', 40, 100, 10);
+
+    expect(
+      selectCurrentDownloads(useDownloadsStore.getState()).map(item => item.id),
+    ).toEqual(['first', 'second']);
+  });
+
   it('marks active persisted work as interrupted during reconciliation', () => {
     const id = createDirectDownloadId('Vega Movie', 0);
     useDownloadsStore.getState().enqueueDownload({
