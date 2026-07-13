@@ -45,7 +45,7 @@ function withCustomNativeModules(config) {
     },
   ]);
 
-  // 2. Add packages to MainApplication.kt
+  // 2. Add packages and DoH factory registration to MainApplication.kt
   config = withMainApplication(config, cfg => {
     let currentContents = cfg.modResults.contents;
 
@@ -58,6 +58,24 @@ function withCustomNativeModules(config) {
           match => `${match}              add(${pkg})\n`,
         );
       }
+    }
+
+    // Register DohOkHttpFactory with OkHttpClientProvider in onCreate
+    const factoryLine = 'OkHttpClientProvider.setOkHttpClientFactory(DohOkHttpFactory(cacheDir))';
+    if (!currentContents.includes('setOkHttpClientFactory')) {
+      // Add the import if missing
+      if (!currentContents.includes('import com.facebook.react.modules.network.OkHttpClientProvider')) {
+        currentContents = currentContents.replace(
+          /^(package .+\n)/m,
+          match => `${match}\nimport com.facebook.react.modules.network.OkHttpClientProvider\n`,
+        );
+      }
+
+      // Inject factory registration after loadReactNative(this)
+      currentContents = currentContents.replace(
+        /loadReactNative\(this\)\n/,
+        match => `${match}    OkHttpClientProvider.setOkHttpClientFactory(DohOkHttpFactory(cacheDir))\n`,
+      );
     }
 
     cfg.modResults.contents = currentContents;
