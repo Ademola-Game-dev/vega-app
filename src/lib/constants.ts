@@ -1,20 +1,9 @@
-import * as RNFS from '@dr.pogodin/react-native-fs';
-
 export const FLAGS = {
   GLOBAL: 'https://utfs.io/f/ImOWJajUmXfyRKHTpylsELpB6QlYA4OdG9Jfr3hagoCN5Mzt',
   INDIA: 'https://utfs.io/f/ImOWJajUmXfyYCEwdELCDZIMxNG5H27Bouwvb4fyVJrdqj3X',
   ENGLISH: 'https://utfs.io/f/ImOWJajUmXfyN1E0dlnILrEMR3DJQX7OUvixCSHp6YWGNVPc',
   ITALY: 'https://utfs.io/f/ImOWJajUmXfynpGlTaXrTMAELcs2W76PyY4IRJVBXCHOofa5',
 };
-
-import Constants from 'expo-constants';
-
-const isPlayStore = Constants.expoConfig?.extra?.isPlayStore;
-
-export const defaultDownloadFolder = isPlayStore 
-  ? RNFS.ExternalDirectoryPath + '/vega' 
-  : RNFS.DownloadDirectoryPath + '/vega';
-export const downloadFolder = defaultDownloadFolder;
 
 export const themes: {name: string; color: string}[] = [
   {

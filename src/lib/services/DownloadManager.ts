@@ -1,12 +1,12 @@
-import {downloadsStorage, settingsStorage} from '../storage';
-import {DownloadPayload} from '../storage/DownloadsStorage';
-import * as RNFS from '@dr.pogodin/react-native-fs';
+import {createDirectDownloadId, createSeriesDownloadId} from '../downloadId';
+import useDownloadsStore, {
+  DownloadInput,
+  DownloadItem,
+  DownloadStatus,
+} from '../zustand/downloadsStore';
 
 export class DownloadManager {
   private static instance: DownloadManager;
-
-  private downloads: Map<string, DownloadPayload> =
-    downloadsStorage.getDownloads();
 
   public static getInstance(): DownloadManager {
     if (!DownloadManager.instance) {
@@ -15,85 +15,55 @@ export class DownloadManager {
     return DownloadManager.instance;
   }
 
-  updateDownloadStatus(
-    id: string,
-    status: 'downloading' | 'paused' | 'downloaded',
-  ): void {
-    const download = this.downloads.get(id);
-    if (download) {
-      download.status = status;
-      this.downloads.set(id, download);
-      downloadsStorage.saveDownloads(this.downloads);
-    }
+  updateDownloadStatus(id: string, status: DownloadStatus): void {
+    useDownloadsStore.getState().updateDownload(id, {status});
   }
 
-  updateDownload(id: string, payload: Partial<DownloadPayload>): void {
-    const download = this.downloads.get(id);
-    if (download) {
-      Object.assign(download, payload);
-      this.downloads.set(id, download);
-      downloadsStorage.saveDownloads(this.downloads);
-    }
+  updateDownload(id: string, payload: Partial<DownloadItem>): void {
+    useDownloadsStore.getState().updateDownload(id, payload);
   }
 
-  addDownload(id: string, payload: DownloadPayload): void {
-    this.downloads.set(id, payload);
-    downloadsStorage.saveDownloads(this.downloads);
+  addDownload(id: string, payload: Omit<DownloadInput, 'id'>): void {
+    useDownloadsStore.getState().enqueueDownload({...payload, id});
   }
 
   async removeDownloadAsync(id: string): Promise<void> {
-    const download = this.downloads.get(id);
-    if (!download) {
-      return;
-    }
-    try {
-      await RNFS.unlink(this.generateDownloadLocation(download));
-    } catch (error) {
-      console.error('Failed to remove download:', error);
-      console.log('path:', this.generateDownloadLocation(download));
-    }
-    const downloadExists = await RNFS.exists(
-      this.generateDownloadLocation(download),
-    );
-    console.log('Download exists after removal attempt:', downloadExists);
-
-    if (!downloadExists) {
-      this.downloads.delete(id);
-      downloadsStorage.saveDownloads(this.downloads);
-    }
+    useDownloadsStore.getState().removeDownload(id);
   }
 
   removeDownload(id: string): void {
-    this.downloads.delete(id);
-    downloadsStorage.saveDownloads(this.downloads);
+    useDownloadsStore.getState().removeDownload(id);
   }
 
-  getDownload(id: string): DownloadPayload | undefined {
-    return this.downloads.get(id);
+  getDownload(id: string): DownloadItem | undefined {
+    return useDownloadsStore.getState().getDownload(id);
   }
 
   isDownloaded(id: string): boolean {
-    return (
-      this.downloads.has(id) && this.downloads.get(id)?.status === 'downloaded'
-    );
+    return this.getDownload(id)?.status === 'completed';
   }
 
-  getAllDownloads(): Map<string, DownloadPayload> {
-    return this.downloads;
+  getAllDownloads(): Record<string, DownloadItem> {
+    return useDownloadsStore.getState().downloads;
   }
 
   generateDownloadId({
-    folderName,
-    fileName,
+    baseTitle,
+    seasonTitle,
+    index,
+    exactId,
   }: {
-    folderName: string;
-    fileName: string;
+    baseTitle: string;
+    seasonTitle?: string;
+    index: number;
+    exactId?: string;
   }): string {
-    return `${folderName}${fileName}`;
-  }
-
-  generateDownloadLocation(downloadPayload: DownloadPayload): string {
-    return `${settingsStorage.getDownloadLocation()}/${downloadPayload.provider}/${downloadPayload.folderName}/${downloadPayload.fileName}.${downloadPayload.fileType}`;
+    if (exactId) {
+      return exactId;
+    }
+    return seasonTitle
+      ? createSeriesDownloadId(baseTitle, seasonTitle, index)
+      : createDirectDownloadId(baseTitle, index);
   }
 }
 

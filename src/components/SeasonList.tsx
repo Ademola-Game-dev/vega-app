@@ -35,6 +35,12 @@ import {useEpisodes, useStreamData} from '../lib/hooks/useEpisodes';
 import useWatchHistoryStore from '../lib/zustand/watchHistrory';
 import useThemeStore from '../lib/zustand/themeStore';
 import SkeletonLoader from './Skeleton';
+import {
+  createDesktopCompatibleFileName,
+  createDirectDownloadId,
+  createSeriesDownloadId,
+} from '../lib/downloadId';
+import useDownloadsStore from '../lib/zustand/downloadsStore';
 
 interface SeasonListProps {
   LinkList: Link[];
@@ -52,6 +58,8 @@ interface SeasonListProps {
     provider?: string;
     poster?: string;
   }>;
+  imdbId?: string;
+  synopsis?: string;
   refreshVersion?: number;
 }
 
@@ -70,6 +78,15 @@ interface StickyMenuState {
   type?: string;
 }
 
+const getOriginalLinkIndex = <T extends {link: string}>(
+  links: T[] | undefined,
+  link: string,
+  fallbackIndex: number,
+): number => {
+  const originalIndex = links?.findIndex(item => item.link === link) ?? -1;
+  return originalIndex >= 0 ? originalIndex : fallbackIndex;
+};
+
 const SeasonList: React.FC<SeasonListProps> = ({
   LinkList,
   poster,
@@ -78,6 +95,8 @@ const SeasonList: React.FC<SeasonListProps> = ({
   providerValue,
   refreshing,
   routeParams,
+  imdbId,
+  synopsis,
   refreshVersion,
 }) => {
   const {primary} = useThemeStore(state => state);
@@ -459,10 +478,21 @@ const SeasonList: React.FC<SeasonListProps> = ({
         return null; // Skip rendering if item is invalid
       }
 
+      const downloadIndex = getOriginalLinkIndex(
+        activeSeason.episodes,
+        item.link,
+        index,
+      );
+      const downloadId = createSeriesDownloadId(
+        metaTitle,
+        activeSeason.title,
+        downloadIndex,
+      );
+
       return (
         <View
           key={item.link + index}
-          className={`w-full my-2 justify-center items-center gap-2 flex-row my-1
+          className={`w-full my-2 justify-center items-center gap-2 flex-row
           ${
             isCompleted(item.link) || stickyMenu.link === item.link
               ? 'opacity-60'
@@ -472,7 +502,26 @@ const SeasonList: React.FC<SeasonListProps> = ({
           <View className="flex-row w-full justify-between gap-2 items-center">
             <TouchableOpacity
               className={`rounded-md bg-white/30 w-[80%] h-12 items-center p-1 flex-row gap-x-2 relative ${titleAlignment}`}
-              onPress={() =>
+              onPress={() => {
+                const localDownload =
+                  useDownloadsStore.getState().downloads[downloadId];
+                if (localDownload?.status === 'completed') {
+                  navigation.navigate('Player', {
+                    episodeList: [
+                      {title: item.title, link: localDownload.filePath},
+                    ],
+                    linkIndex: 0,
+                    type: '',
+                    directUrl: localDownload.filePath,
+                    primaryTitle: metaTitle,
+                    secondaryTitle: activeSeason.title,
+                    poster,
+                    providerValue,
+                    infoUrl: localDownload.infoUrl || routeParams.link,
+                    doNotTrack: !(localDownload.infoUrl || routeParams.link),
+                  });
+                  return;
+                }
                 playHandler({
                   linkIndex: index,
                   type: type,
@@ -480,8 +529,8 @@ const SeasonList: React.FC<SeasonListProps> = ({
                   secondaryTitle: item.title,
                   seasonTitle: activeSeason?.title || '',
                   episodeData: filteredAndSortedEpisodes,
-                })
-              }
+                });
+              }}
               onLongPress={() => onLongPressHandler(true, item.link, 'series')}>
               <Ionicons name="play-circle" size={28} color={primary} />
               <Text className="text-white">
@@ -491,19 +540,25 @@ const SeasonList: React.FC<SeasonListProps> = ({
               </Text>
             </TouchableOpacity>
             <Downloader
+              downloadId={downloadId}
               providerValue={providerValue}
               link={item.link}
               type={type}
+              mediaType="series"
+              showName={metaTitle}
+              seasonTitle={activeSeason.title}
+              episodeName={item.title}
+              imdbId={imdbId}
+              poster={poster.poster}
+              background={poster.background}
+              synopsis={synopsis}
+              infoUrl={routeParams.link}
               title={
                 metaTitle.length > 30
                   ? metaTitle.slice(0, 30) + '... ' + item.title
                   : metaTitle + ' ' + item.title
               }
-              fileName={(
-                metaTitle +
-                activeSeason.title +
-                item.title
-              ).replaceAll(/[^a-zA-Z0-9]/g, '_')}
+              fileName={createDesktopCompatibleFileName(item.title, 'series')}
             />
           </View>
         </View>
@@ -516,10 +571,14 @@ const SeasonList: React.FC<SeasonListProps> = ({
       playHandler,
       metaTitle,
       activeSeason?.title,
+      activeSeason?.episodes,
       filteredAndSortedEpisodes,
       onLongPressHandler,
       primary,
       providerValue,
+      routeParams.link,
+      imdbId,
+      poster.poster,
     ],
   );
 
@@ -531,10 +590,17 @@ const SeasonList: React.FC<SeasonListProps> = ({
         return null; // Skip rendering if item is invalid
       }
 
+      const downloadIndex = getOriginalLinkIndex(
+        activeSeason.directLinks,
+        item.link,
+        index,
+      );
+      const downloadId = createDirectDownloadId(metaTitle, downloadIndex);
+
       return (
         <View
           key={item.link + index}
-          className={`w-full my-2 justify-center items-center my-2 gap-2 flex-row
+          className={`w-full my-2 justify-center items-center gap-2 flex-row
           ${
             isCompleted(item.link) || stickyMenu.link === item.link
               ? 'opacity-60'
@@ -544,7 +610,26 @@ const SeasonList: React.FC<SeasonListProps> = ({
           <View className="flex-row w-full justify-between gap-2 items-center">
             <TouchableOpacity
               className={`rounded-md bg-white/30 w-[80%] h-12 items-center p-2 flex-row gap-x-2 relative ${titleAlignment}`}
-              onPress={() =>
+              onPress={() => {
+                const localDownload =
+                  useDownloadsStore.getState().downloads[downloadId];
+                if (localDownload?.status === 'completed') {
+                  navigation.navigate('Player', {
+                    episodeList: [
+                      {title: item.title, link: localDownload.filePath},
+                    ],
+                    linkIndex: 0,
+                    type: '',
+                    directUrl: localDownload.filePath,
+                    primaryTitle: metaTitle,
+                    secondaryTitle: activeSeason.title,
+                    poster,
+                    providerValue,
+                    infoUrl: localDownload.infoUrl || routeParams.link,
+                    doNotTrack: !(localDownload.infoUrl || routeParams.link),
+                  });
+                  return;
+                }
                 playHandler({
                   linkIndex: index,
                   type: type,
@@ -552,8 +637,8 @@ const SeasonList: React.FC<SeasonListProps> = ({
                   secondaryTitle: item.title,
                   seasonTitle: activeSeason?.title || '',
                   episodeData: filteredAndSortedDirectLinks,
-                })
-              }
+                });
+              }}
               onLongPress={() =>
                 onLongPressHandler(true, item.link, item?.type || 'series')
               }>
@@ -568,19 +653,28 @@ const SeasonList: React.FC<SeasonListProps> = ({
               </Text>
             </TouchableOpacity>
             <Downloader
+              downloadId={downloadId}
               providerValue={providerValue}
               link={item.link}
               type={type}
+              mediaType={item?.type === 'series' ? 'series' : 'movie'}
+              showName={metaTitle}
+              seasonTitle={activeSeason.title}
+              episodeName={item.title}
+              imdbId={imdbId}
+              poster={poster.poster}
+              background={poster.background}
+              synopsis={synopsis}
+              infoUrl={routeParams.link}
               title={
                 metaTitle.length > 30
                   ? metaTitle.slice(0, 30) + '... ' + item.title
                   : metaTitle + ' ' + item.title
               }
-              fileName={(
-                metaTitle +
-                activeSeason.title +
-                item.title
-              ).replaceAll(/[^a-zA-Z0-9]/g, '_')}
+              fileName={createDesktopCompatibleFileName(
+                item?.type === 'series' ? item.title : metaTitle,
+                item?.type === 'series' ? 'series' : 'movie',
+              )}
             />
           </View>
         </View>
@@ -598,6 +692,9 @@ const SeasonList: React.FC<SeasonListProps> = ({
       onLongPressHandler,
       primary,
       providerValue,
+      routeParams.link,
+      imdbId,
+      poster.poster,
     ],
   );
 

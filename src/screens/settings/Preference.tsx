@@ -8,15 +8,16 @@ import {
   StatusBar,
   TextInput,
 } from 'react-native';
-import React, { useState } from 'react';
-import { settingsStorage } from '../../lib/storage';
+import React, {useState} from 'react';
+import {settingsStorage} from '../../lib/storage';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import RNReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useThemeStore from '../../lib/zustand/themeStore';
-import { themes } from '../../lib/constants';
+import {themes} from '../../lib/constants';
 import Constants from 'expo-constants';
 import DownloadLocationPreference from './components/DownloadLocationPreference';
-import { Dropdown } from 'react-native-element-dropdown';
+import {Dropdown} from 'react-native-element-dropdown';
+import useNavigationPreferencesStore from '../../lib/zustand/navigationPreferencesStore';
 // Lazy-load Firebase to allow running without google-services.json
 const getAnalytics = (): any | null => {
   try {
@@ -35,7 +36,7 @@ const getCrashlytics = (): any | null => {
 
 const Preferences = () => {
   const hasFirebase = Boolean(Constants?.expoConfig?.extra?.hasFirebase);
-  const { primary, setPrimary, isCustom, setCustom } = useThemeStore(
+  const {primary, setPrimary, isCustom, setCustom} = useThemeStore(
     state => state,
   );
   const [showRecentlyWatched, setShowRecentlyWatched] = useState(
@@ -75,6 +76,12 @@ const Preferences = () => {
 
   const [showTabBarLables, setShowTabBarLables] = useState<boolean>(
     settingsStorage.showTabBarLabels(),
+  );
+  const hideDownloadsTab = useNavigationPreferencesStore(
+    state => state.hideDownloadsTab,
+  );
+  const setHideDownloadsTab = useNavigationPreferencesStore(
+    state => state.setHideDownloadsTab,
   );
 
   const [OpenExternalPlayer, setOpenExternalPlayer] = useState(
@@ -162,7 +169,7 @@ const Preferences = () => {
                       borderWidth: 0,
                       marginTop: 4,
                     }}
-                    itemTextStyle={{ color: 'white' }}
+                    itemTextStyle={{color: 'white'}}
                     activeColor="#3A3A3A"
                     itemContainerStyle={{
                       backgroundColor: '#262626',
@@ -172,8 +179,8 @@ const Preferences = () => {
                       backgroundColor: '#262626',
                       borderWidth: 0,
                     }}
-                    iconStyle={{ tintColor: 'white' }}
-                    placeholderStyle={{ color: 'white' }}
+                    iconStyle={{tintColor: 'white'}}
+                    placeholderStyle={{color: 'white'}}
                     labelField="name"
                     valueField="color"
                     data={themes}
@@ -223,7 +230,7 @@ const Preferences = () => {
                         (await crashlytics().setCrashlyticsCollectionEnabled(
                           next,
                         ));
-                    } catch { }
+                    } catch {}
                     try {
                       const analytics = getAnalytics();
                       analytics &&
@@ -236,7 +243,7 @@ const Preferences = () => {
                           ad_user_data: next,
                           ad_personalization: next,
                         }));
-                    } catch { }
+                    } catch {}
                   }}
                 />
               </View>
@@ -256,6 +263,16 @@ const Preferences = () => {
                     ToastAndroid.SHORT,
                   );
                 }}
+              />
+            </View>
+
+            {/* Show Hamburger Menu */}
+            <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
+              <Text className="text-white text-base">Hide Downloads Tab</Text>
+              <Switch
+                thumbColor={hideDownloadsTab ? primary : 'gray'}
+                value={hideDownloadsTab}
+                onValueChange={setHideDownloadsTab}
               />
             </View>
 
@@ -420,8 +437,6 @@ const Preferences = () => {
             </View>
           </View>
         </View>
-
-
 
         <View className="h-16" />
       </View>

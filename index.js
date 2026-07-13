@@ -14,8 +14,9 @@ if (__DEV__) {
 }
 
 notifee.onBackgroundEvent(async ({type, detail}) => {
-  const notificationService = require('./src/lib/services/Notification').default;
-  notificationService.actionHandler({type, detail});
+  const notificationService =
+    require('./src/lib/services/Notification').default;
+  await notificationService.actionHandler({type, detail});
 });
 
 notifee.registerForegroundService(async () => {

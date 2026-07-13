@@ -1,4 +1,4 @@
-import React, {useEffect, useLayoutEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, Text, TouchableOpacity, Modal, Pressable} from 'react-native';
 import {ifExists} from '../lib/file/ifExists';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -12,63 +12,171 @@ import Animated, {
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import useContentStore from '../lib/zustand/contentStore';
 import * as IntentLauncher from 'expo-intent-launcher';
+import {cancelDownload} from '../lib/downloadManager';
 import {downloadManager} from '../lib/downloader';
-import {cancelHlsDownload} from '../lib/hlsDownloader2';
-// import {FFmpegKit} from 'ffmpeg-kit-react-native';
-import * as RNFS from '@dr.pogodin/react-native-fs';
 import useThemeStore from '../lib/zustand/themeStore';
 import DownloadBottomSheet from './DownloadBottomSheet';
 import {settingsStorage} from '../lib/storage';
 import {providerManager} from '../lib/services/ProviderManager';
 import {deleteDownloadedFileByBaseName} from '../lib/downloadLocation';
+import {deleteDownloadOutput} from '../lib/downloadDestination';
+import {
+  createDownloadDirectoryName,
+  createDownloadSeasonDirectoryName,
+} from '../lib/downloadId';
+import useDownloadsStore, {
+  CURRENT_DOWNLOAD_STATUSES,
+} from '../lib/zustand/downloadsStore';
+import {createSubtitleFileName} from '../lib/downloadId';
+import {
+  selectDownloadLocation,
+  validateDownloadLocationAccess,
+} from '../lib/downloadLocation';
+import DownloadLocationDialog from './DownloadLocationDialog';
+
+type PendingDownload = {
+  downloadId: string;
+  title: string;
+  showName?: string;
+  episodeName?: string;
+  seasonTitle?: string;
+  mediaType: 'movie' | 'series';
+  imdbId?: string;
+  poster?: string;
+  background?: string;
+  synopsis?: string;
+  provider?: string;
+  infoUrl?: string;
+  sourceLink?: string;
+  url: string;
+  fileName: string;
+  fileType: string;
+  headers?: Record<string, string>;
+  subtitles?: Array<{url: string; language: string; format?: string}>;
+  deleteDownload: () => void;
+};
 
 const DownloadComponent = ({
   link,
+  downloadId,
   fileName,
   type,
+  mediaType,
   providerValue,
   title,
+  showName,
+  episodeName,
+  seasonTitle,
+  imdbId,
+  poster,
+  background,
+  synopsis,
+  infoUrl,
 }: {
   link: string;
+  downloadId: string;
   fileName: string;
   type: string;
+  mediaType: 'movie' | 'series';
   providerValue: string;
   title: string;
+  showName?: string;
+  episodeName?: string;
+  seasonTitle?: string;
+  imdbId?: string;
+  poster?: string;
+  background?: string;
+  synopsis?: string;
+  infoUrl?: string;
 }) => {
   const {primary} = useThemeStore(state => state);
   const {provider} = useContentStore(state => state);
-  const [alreadyDownloaded, setAlreadyDownloaded] = useState<string | boolean>(
-    false,
-  );
+  const download = useDownloadsStore(state => state.downloads[downloadId]);
+  const removeDownload = useDownloadsStore(state => state.removeDownload);
+  const [legacyDownloadedFile, setLegacyDownloadedFile] = useState<
+    string | boolean
+  >(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [downloadModal, setDownloadModal] = useState(false);
   const [longPressModal, setLongPressModal] = useState(false);
   const [cancelModal, setCancelModal] = useState(false);
-  const [downloadId, setDownloadId] = useState<number | null>(null);
   const [servers, setServers] = useState<Stream[]>([]);
   const [serverLoading, setServerLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [downloadActive, setDownloadActive] = useState(false);
+  const [pendingDownload, setPendingDownload] =
+    useState<PendingDownload | null>(null);
+  const [locationDialogVisible, setLocationDialogVisible] = useState(false);
+  const [selectingLocation, setSelectingLocation] = useState(false);
+  const downloadActive = Boolean(
+    download && CURRENT_DOWNLOAD_STATUSES.has(download.status),
+  );
+  const alreadyDownloaded =
+    download?.status === 'completed' || Boolean(legacyDownloadedFile);
 
-  // check if file already exists
-  useLayoutEffect(() => {
+  const startDownloadWithLocation = async (request: PendingDownload) => {
+    const currentLocation = settingsStorage.getDownloadLocationConfig();
+    if (await validateDownloadLocationAccess(currentLocation)) {
+      await downloadManager(request);
+      return;
+    }
+    setPendingDownload(request);
+    setLocationDialogVisible(true);
+  };
+
+  const selectLocationAndContinue = async () => {
+    if (!pendingDownload || selectingLocation) {
+      return;
+    }
+    setSelectingLocation(true);
+    try {
+      const location = await selectDownloadLocation();
+      if (!location || !(await validateDownloadLocationAccess(location))) {
+        return;
+      }
+      settingsStorage.setDownloadLocation(location);
+      const request = pendingDownload;
+      setPendingDownload(null);
+      setLocationDialogVisible(false);
+      await downloadManager(request);
+    } finally {
+      setSelectingLocation(false);
+    }
+  };
+
+  useEffect(() => {
+    if (download) {
+      return;
+    }
     const checkIfDownloaded = async () => {
       const exists = await ifExists(fileName);
-      setAlreadyDownloaded(exists);
+      setLegacyDownloadedFile(exists);
     };
     checkIfDownloaded();
-  }, [fileName]);
+  }, [download, fileName]);
 
   // handle download deletion
   const deleteDownload = async () => {
     try {
-      const deleted = await deleteDownloadedFileByBaseName(
-        settingsStorage.getDownloadLocationConfig(),
-        fileName,
-      );
+      const deleted = download?.filePath
+        ? await deleteDownloadOutput(download.filePath, {
+            downloadLocation: download.downloadLocation,
+            outputDirectoryNames: [
+              createDownloadDirectoryName(download.showName || download.title),
+              ...(download.type === 'series'
+                ? [
+                    createDownloadSeasonDirectoryName(download.seasonTitle),
+                  ].filter((name): name is string => Boolean(name))
+                : []),
+            ],
+          })
+        : await deleteDownloadedFileByBaseName(
+            settingsStorage.getDownloadLocationConfig(),
+            fileName,
+          );
 
       if (deleted) {
-        setAlreadyDownloaded(false);
+        removeDownload(downloadId);
+        setLegacyDownloadedFile(false);
         setDeleteModal(false);
       }
     } catch (error) {
@@ -86,13 +194,13 @@ const DownloadComponent = ({
       setServerLoading(true);
       setServerError(null);
       try {
-        const servers = await providerManager.getStream({
+        const availableServers = await providerManager.getStream({
           link,
           type,
           signal: controller.signal,
           providerValue: providerValue || provider.value,
         });
-        const filteredServers = servers;
+        const filteredServers = availableServers;
         // .filter(
         //   server =>
         //     !manifest[
@@ -117,12 +225,13 @@ const DownloadComponent = ({
   }, [downloadModal, longPressModal]);
 
   // on holdPress external downloader
-  const longPressDownload = async (link: string, type?: string) => {
+  const longPressDownload = async (targetLink: string, targetType?: string) => {
     try {
-      const isTorrent = type === 'torrent' || link.startsWith('magnet:');
+      const isTorrent =
+        targetType === 'torrent' || targetLink.startsWith('magnet:');
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-        data: link,
-        type: isTorrent ? undefined : (type || 'video/*'),
+        data: targetLink,
+        type: isTorrent ? undefined : targetType || 'video/*',
       });
     } catch (error) {
       console.log(error);
@@ -221,29 +330,67 @@ const DownloadComponent = ({
           error={serverError}
           title="Select Server To Download"
           onPressVideo={(server: Stream) => {
-            downloadManager({
+            startDownloadWithLocation({
+              downloadId,
               title: title,
+              showName,
+              episodeName,
+              seasonTitle,
+              mediaType,
+              imdbId,
+              poster,
+              background,
+              synopsis,
+              provider: providerValue || provider.value,
+              infoUrl,
+              sourceLink: link,
               url: server.link,
               fileName: fileName,
               fileType: server.type,
-              setDownloadActive: setDownloadActive,
-              setAlreadyDownloaded: setAlreadyDownloaded,
-              setDownloadId: setDownloadId,
               headers: server?.headers,
+              subtitles: server.subtitles?.map(subtitle => ({
+                url: subtitle.uri,
+                language: subtitle.language || 'Unknown',
+                format: subtitle.type === 'text/vtt' ? 'vtt' : 'srt',
+              })),
               deleteDownload: deleteDownload,
             });
           }}
           onPressSubs={(sub: {link: string; type: string; title: string}) => {
-            downloadManager({
+            startDownloadWithLocation({
+              downloadId: `${downloadId}_subtitle_${sub.title}`,
               title: title + ' ' + sub.title + ' Subtitle ',
+              showName,
+              episodeName,
+              seasonTitle,
+              mediaType,
+              imdbId,
+              poster,
+              background,
+              synopsis,
+              provider: providerValue || provider.value,
+              infoUrl,
+              sourceLink: link,
               url: sub.link,
-              fileName: fileName + '-' + sub.title,
+              fileName: createSubtitleFileName(fileName, sub.title),
               fileType: sub.type,
-              setDownloadActive: setDownloadActive,
-              setAlreadyDownloaded: () => {},
-              setDownloadId: setDownloadId,
               deleteDownload: () => {},
             });
+          }}
+        />
+        <DownloadLocationDialog
+          visible={locationDialogVisible}
+          primary={primary}
+          selecting={selectingLocation}
+          onCancel={() => {
+            if (selectingLocation) {
+              return;
+            }
+            setPendingDownload(null);
+            setLocationDialogVisible(false);
+          }}
+          onSelectFolder={() => {
+            selectLocationAndContinue().catch(console.error);
           }}
         />
         {/* long press modal */}
@@ -262,27 +409,12 @@ const DownloadComponent = ({
           }}
         />
       </View>
-      {cancelModal && downloadId && (
+      {cancelModal && download && (
         <Pressable
           onPress={async () => {
             setCancelModal(false);
             try {
-              // Check if this is an HLS download (ID >= 1000) or regular download
-              if (typeof downloadId === 'number' && downloadId >= 1000) {
-                // HLS download cancellation
-                cancelHlsDownload(downloadId);
-              } else {
-                // Regular download cancellation
-                RNFS.stopDownload(downloadId);
-                //FFMPEGKIT CANCEL
-                // FFmpegKit.cancel(downloadId);
-              }
-              setDownloadActive(false);
-
-              await deleteDownloadedFileByBaseName(
-                settingsStorage.getDownloadLocationConfig(),
-                fileName,
-              );
+              await cancelDownload(downloadId);
             } catch (error) {
               console.log('Error cancelling download', error);
             }

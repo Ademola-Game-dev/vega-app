@@ -16,6 +16,7 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
         private var streamServer: TorrentStreamServer? = null
         private val torrentHandles = mutableMapOf<String, TorrentHandle>()
         private val torrentSavePaths = mutableMapOf<String, String>()
+        private val torrentOutputPaths = mutableMapOf<String, String>()
     }
 
     override fun getName(): String = "TorrentModule"
@@ -215,6 +216,7 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
                                         val ext = File(originalPath).extension
                                         val newName = if (ext.isNotEmpty()) "$fileName.$ext" else fileName
                                         th.renameFile(maxIdx, newName)
+                                        torrentOutputPaths[finalHashHex] = File(downloadDir, newName).absolutePath
                                         Log.d(TAG, "Renamed torrent file $originalPath to $newName")
                                     }
                                 }
@@ -417,6 +419,31 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
     }
 
     @ReactMethod
+    fun completeTorrent(infoHash: String, promise: Promise) {
+        try {
+            val outputPath = torrentOutputPaths[infoHash]
+            if (outputPath == null) {
+                promise.reject("OUTPUT_NOT_FOUND", "Torrent output path is unavailable")
+                return
+            }
+            val outputFile = File(outputPath)
+            if (!outputFile.exists() || outputFile.length() <= 0L) {
+                promise.reject("OUTPUT_NOT_FOUND", "Torrent output file is missing")
+                return
+            }
+            val result = WritableNativeMap().apply {
+                putBoolean("success", true)
+                putString("outputPath", outputFile.absolutePath)
+                putString("fileName", outputFile.name)
+                putDouble("size", outputFile.length().toDouble())
+            }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            promise.reject("COMPLETE_ERROR", e.message, e)
+        }
+    }
+
+    @ReactMethod
     fun deleteTorrent(infoHash: String, deleteFiles: Boolean, promise: Promise) {
         Log.e(TAG, "deleteTorrent called for infoHash: $infoHash, deleteFiles: $deleteFiles")
         try {
@@ -425,6 +452,7 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
             
             val pathsToDelete = mutableListOf<String>()
             val savePath = torrentSavePaths[infoHash]
+            torrentOutputPaths[infoHash]?.let { pathsToDelete.add(it) }
             if (deleteFiles && th != null && savePath != null) {
                 try {
                     val ti = th.torrentFile()
@@ -448,6 +476,7 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
             streamServer?.unregisterTorrent(infoHash)
             torrentHandles.remove(infoHash)
             torrentSavePaths.remove(infoHash)
+            torrentOutputPaths.remove(infoHash)
 
             for (path in pathsToDelete) {
                 try { 

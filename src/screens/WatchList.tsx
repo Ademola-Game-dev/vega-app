@@ -1,13 +1,13 @@
-import {View, Text, Platform, Image, Dimensions, FlatList} from 'react-native';
+import {View, Text, Platform, Dimensions, FlatList} from 'react-native';
 import React from 'react';
 import {useNavigation} from '@react-navigation/native';
 import {WatchListStackParamList} from '../App';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {TouchableOpacity} from 'react-native';
 import useThemeStore from '../lib/zustand/themeStore';
 import useWatchListStore from '../lib/zustand/watchListStore';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {StatusBar} from 'expo-status-bar';
+import MediaPosterCard from '../components/MediaPosterCard';
 
 const WatchList = () => {
   const {primary} = useThemeStore(state => state);
@@ -34,8 +34,11 @@ const WatchList = () => {
 
   // Render each grid item
   const renderItem = ({item, index}: {item: any; index: number}) => (
-    <TouchableOpacity
+    <MediaPosterCard
       key={item.link + index}
+      title={item.title}
+      poster={item.poster}
+      width={itemWidth}
       onPress={() =>
         navigation.navigate('Info', {
           link: item.link,
@@ -43,29 +46,7 @@ const WatchList = () => {
           poster: item.poster,
         })
       }
-      style={{
-        width: itemWidth,
-        marginBottom: 16,
-      }}>
-      <View className="relative overflow-hidden">
-        <Image
-          className="rounded-xl"
-          resizeMode="cover"
-          style={{
-            width: itemWidth,
-            height: 155,
-            borderRadius: 10,
-          }}
-          source={{uri: item.poster}}
-        />
-        <Text
-          className="text-white text-xs truncate text-center mt-1"
-          style={{maxWidth: itemWidth}}
-          numberOfLines={1}>
-          {item.title}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    />
   );
 
   return (

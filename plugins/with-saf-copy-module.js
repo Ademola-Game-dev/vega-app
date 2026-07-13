@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const {withDangerousMod, withMainApplication} = require('@expo/config-plugins');
 
-const SAF_COPY_MODULE_SOURCE = (packageName) => `package ${packageName}
+const SAF_COPY_MODULE_SOURCE = packageName => `package ${packageName}
 
 import android.net.Uri
 import com.facebook.react.bridge.NativeModule
@@ -48,6 +48,21 @@ class SafCopyModule(private val reactContext: ReactApplicationContext) : ReactCo
       promise.resolve(null)
     } catch (error: Exception) {
       promise.reject("SAF_COPY_FAILED", error.message, error)
+    }
+  }
+
+  @ReactMethod
+  fun getUriSize(uriString: String, promise: Promise) {
+    try {
+      val uri = Uri.parse(uriString)
+      val descriptor = reactContext.contentResolver.openAssetFileDescriptor(uri, "r")
+        ?: throw IOException("Unable to open SAF file for $uriString")
+
+      descriptor.use {
+        promise.resolve(it.length.toDouble())
+      }
+    } catch (error: Exception) {
+      promise.reject("SAF_SIZE_FAILED", error.message, error)
     }
   }
 

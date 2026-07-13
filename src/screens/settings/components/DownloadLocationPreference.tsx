@@ -1,16 +1,10 @@
 import React, {useState} from 'react';
-import {
-  Platform,
-  Text,
-  ToastAndroid,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import {Text, ToastAndroid, TouchableOpacity, View} from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import * as RNFS from '@dr.pogodin/react-native-fs';
-import * as FileSystem from 'expo-file-system/legacy';
-import {defaultDownloadFolder} from '../../../lib/constants';
-import {getDownloadLocationDisplayValue} from '../../../lib/downloadLocation';
+import {
+  getDownloadLocationDisplayValue,
+  selectDownloadLocation,
+} from '../../../lib/downloadLocation';
 import {settingsStorage} from '../../../lib/storage';
 
 type DownloadLocationPreferenceProps = {
@@ -26,45 +20,13 @@ const DownloadLocationPreference = ({
   const [isPickingFolder, setIsPickingFolder] = useState(false);
 
   const saveDownloadLocation = (
-    location:
-      | string
-      | {
-          type: 'saf';
-          uri: string;
-          label: string;
-        },
+    location: NonNullable<
+      ReturnType<typeof settingsStorage.getDownloadLocationConfig>
+    >,
   ) => {
-    if (typeof location === 'string' && !location.trim()) {
-      ToastAndroid.show('Invalid download location', ToastAndroid.SHORT);
-      return;
-    }
-
     settingsStorage.setDownloadLocation(location);
-    const nextLocation =
-      typeof location === 'string'
-        ? location.trim()
-        : getDownloadLocationDisplayValue(location);
-    setDownloadLocation(nextLocation);
+    setDownloadLocation(getDownloadLocationDisplayValue(location));
     ToastAndroid.show('Download location updated', ToastAndroid.SHORT);
-  };
-
-  const getAndroidDirectoryLabel = (directoryUri: string) => {
-    const treeMarker = '/tree/';
-    const treeIndex = directoryUri.indexOf(treeMarker);
-    if (treeIndex === -1) {
-      return 'Custom folder';
-    }
-
-    const documentId = decodeURIComponent(
-      directoryUri.slice(treeIndex + treeMarker.length),
-    );
-    const [volume, relativePath = ''] = documentId.split(':');
-
-    if (!relativePath) {
-      return volume === 'primary' ? 'Internal storage' : volume;
-    }
-
-    return `${volume === 'primary' ? 'Internal storage' : volume}/${relativePath}`;
   };
 
   const pickDownloadLocation = async () => {
@@ -74,27 +36,9 @@ const DownloadLocationPreference = ({
 
     setIsPickingFolder(true);
     try {
-      if (Platform.OS === 'android') {
-        const permissions =
-          await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-
-        if (!permissions.granted) {
-          ToastAndroid.show('No folder selected', ToastAndroid.SHORT);
-          return;
-        }
-
-        saveDownloadLocation({
-          type: 'saf',
-          uri: permissions.directoryUri,
-          label: getAndroidDirectoryLabel(permissions.directoryUri),
-        });
-        return;
-      }
-
-      const pickedFolders = await RNFS.pickFile({pickerType: 'folder'});
-      const pickedFolder = pickedFolders[0];
-      if (pickedFolder) {
-        saveDownloadLocation(pickedFolder.replace(/^file:\/\//, ''));
+      const pickedLocation = await selectDownloadLocation();
+      if (pickedLocation) {
+        saveDownloadLocation(pickedLocation);
         return;
       }
 
@@ -133,8 +77,8 @@ const DownloadLocationPreference = ({
         <TouchableOpacity
           onPress={() => {
             settingsStorage.resetDownloadLocation();
-            setDownloadLocation(defaultDownloadFolder);
-            ToastAndroid.show('Download location reset', ToastAndroid.SHORT);
+            setDownloadLocation('Select a download folder');
+            ToastAndroid.show('Download location cleared', ToastAndroid.SHORT);
           }}
           className="flex-row items-center justify-between p-4">
           <Text className="text-white text-base flex-1">

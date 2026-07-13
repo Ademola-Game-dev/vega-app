@@ -30,6 +30,7 @@ const ContinueWatching = () => {
   const recentItems = React.useMemo(() => {
     const seen = new Set();
     const items = history
+      .filter(item => item.provider !== 'local')
       .filter(item => {
         if (seen.has(item.link)) {
           return false;

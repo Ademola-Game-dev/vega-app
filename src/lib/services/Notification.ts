@@ -3,19 +3,25 @@ import notifee, {
   EventDetail,
   EventType,
   AndroidForegroundServiceType,
+  AuthorizationStatus,
 } from '@notifee/react-native';
 import {settingsStorage} from '../storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
-import {cancelHlsDownload} from '../hlsDownloader2';
 import RNApkInstaller from '@himanshu8443/react-native-apk-installer';
-import {deleteDownloadedFileByBaseName} from '../downloadLocation';
-import {torrentManager} from '../torrentManager';
-import {cancelTorrentDownload} from '../downloader';
+import type {DownloadSourceType} from '../zustand/downloadsStore';
+
+type NotificationData = Record<string, string | number | boolean>;
+
+interface DownloadNotificationData extends NotificationData {
+  downloadId: string;
+  sourceType: DownloadSourceType;
+}
+
 export interface NotificationOptions {
   id: string;
   title: string;
   body: string;
-  data?: any;
+  data?: NotificationData;
   progress?: {
     max: number;
     current: number;
@@ -43,6 +49,7 @@ class NotificationService {
   private _downloadChannelId = 'download';
   private _updateChannelId = 'update';
   private initialized = false;
+  private permissionRequest?: Promise<boolean>;
 
   constructor() {
     this.initialize();
@@ -94,6 +101,34 @@ class NotificationService {
     return await notifee.requestPermission();
   }
 
+  async ensureDownloadPermission(): Promise<boolean> {
+    if (this.permissionRequest) {
+      return this.permissionRequest;
+    }
+
+    this.permissionRequest = (async () => {
+      await this.ensureInitialized();
+      const current = await notifee.getNotificationSettings();
+      if (
+        current.authorizationStatus === AuthorizationStatus.AUTHORIZED ||
+        current.authorizationStatus === AuthorizationStatus.PROVISIONAL
+      ) {
+        return true;
+      }
+      const requested = await notifee.requestPermission();
+      return (
+        requested.authorizationStatus === AuthorizationStatus.AUTHORIZED ||
+        requested.authorizationStatus === AuthorizationStatus.PROVISIONAL
+      );
+    })();
+
+    try {
+      return await this.permissionRequest;
+    } finally {
+      this.permissionRequest = undefined;
+    }
+  }
+
   /**
    * Create a custom channel
    */
@@ -134,7 +169,9 @@ class NotificationService {
         actions: options.actions,
         onlyAlertOnce: options.onlyAlertOnce || false,
         asForegroundService: options.asForegroundService ?? false,
-        foregroundServiceTypes: options.asForegroundService ? [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC] : undefined,
+        foregroundServiceTypes: options.asForegroundService
+          ? [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC]
+          : undefined,
       },
     });
   }
@@ -171,28 +208,44 @@ class NotificationService {
     await notifee.cancelAllNotifications();
   }
 
-  private _activeForegroundTasks = 0;
+  private readonly _activeForegroundTasks = new Set<string>();
 
-  startForegroundTask() {
-    this._activeForegroundTasks++;
+  startForegroundTask(downloadId: string) {
+    this._activeForegroundTasks.add(downloadId);
   }
 
-  async stopForegroundTask() {
-    this._activeForegroundTasks--;
-    if (this._activeForegroundTasks <= 0) {
-      this._activeForegroundTasks = 0;
+  async stopForegroundTask(downloadId: string) {
+    this._activeForegroundTasks.delete(downloadId);
+    if (this._activeForegroundTasks.size === 0) {
       await notifee.stopForegroundService();
     }
+  }
+
+  async resetDownloadForegroundState(): Promise<void> {
+    this._activeForegroundTasks.clear();
+    await notifee.stopForegroundService();
+  }
+
+  private getDownloadData(
+    downloadId: string,
+    sourceType: DownloadSourceType,
+  ): DownloadNotificationData {
+    return {downloadId, sourceType};
   }
 
   /**
    * Helper method to show download starting notification
    */
-  async showDownloadStarting(title: string, fileName: string): Promise<void> {
+  async showDownloadStarting(
+    title: string,
+    downloadId: string,
+    sourceType: DownloadSourceType,
+  ): Promise<void> {
     await this.displayDownloadNotification({
-      id: fileName,
+      id: downloadId,
       title: title,
       body: 'Starting download',
+      data: this.getDownloadData(downloadId, sourceType),
       progress: {
         max: 100,
         current: 0,
@@ -207,16 +260,16 @@ class NotificationService {
    */
   async showDownloadProgress(
     title: string,
-    fileName: string,
+    downloadId: string,
     progress: number,
     progressText: string,
-    jobId?: number | string,
+    sourceType: DownloadSourceType,
   ): Promise<void> {
     await this.displayDownloadNotification({
-      id: fileName,
+      id: downloadId,
       title: title,
       body: progressText,
-      data: {jobId, fileName},
+      data: this.getDownloadData(downloadId, sourceType),
       progress: {
         max: 100,
         current: Math.min(Math.max(progress * 100, 0), 100),
@@ -226,7 +279,7 @@ class NotificationService {
         {
           title: 'Cancel',
           pressAction: {
-            id: fileName,
+            id: 'cancel-download',
           },
         },
       ],
@@ -238,24 +291,34 @@ class NotificationService {
   /**
    * Helper method to show download complete notification
    */
-  async showDownloadComplete(title: string, fileName: string): Promise<void> {
-    await this.cancelNotification(fileName);
+  async showDownloadComplete(
+    title: string,
+    downloadId: string,
+    sourceType: DownloadSourceType,
+  ): Promise<void> {
+    await this.cancelNotification(downloadId);
     await this.displayDownloadNotification({
-      id: `downloadComplete${fileName}`,
+      id: `downloadComplete${downloadId}`,
       title: 'Download complete',
       body: title,
+      data: this.getDownloadData(downloadId, sourceType),
     });
   }
 
   /**
    * Helper method to show download failed notification
    */
-  async showDownloadFailed(title: string, fileName: string): Promise<void> {
-    await this.cancelNotification(fileName);
+  async showDownloadFailed(
+    title: string,
+    downloadId: string,
+    sourceType: DownloadSourceType,
+  ): Promise<void> {
+    await this.cancelNotification(downloadId);
     await this.displayDownloadNotification({
-      id: `downloadFailed${fileName}`,
+      id: `downloadFailed${downloadId}`,
       title: 'Download failed',
       body: title,
+      data: this.getDownloadData(downloadId, sourceType),
     });
   }
 
@@ -276,39 +339,26 @@ class NotificationService {
   }
 
   async actionHandler({type, detail}: {type: EventType; detail: EventDetail}) {
-    console.log('Notification action', type, detail);
-    console.log('EventType.PRESS:', EventType.PRESS);
-    console.log('EventType.ACTION_PRESS:', EventType.ACTION_PRESS);
-    console.log('Actual type received:', type);
-    console.log('pressAction:', detail.pressAction);
-
-    // Handle download cancellation
     if (
       type === EventType.ACTION_PRESS &&
-      detail.pressAction?.id === detail.notification?.data?.fileName
+      (detail.pressAction?.id === 'cancel-download' ||
+        Boolean(detail.notification?.data?.jobId) ||
+        (Boolean(detail.notification?.data?.fileName) &&
+          detail.pressAction?.id !== 'default'))
     ) {
-      const jobId = detail.notification?.data?.jobId;
-      console.log('Cancel download pressed, jobId:', jobId);
-      if (jobId && String(jobId).length >= 40) {
-        cancelTorrentDownload(detail.notification?.data?.fileName!);
-      } else {
-        RNFS.stopDownload(Number(jobId));
+      const notificationData = detail.notification?.data;
+      const downloadId =
+        notificationData?.downloadId ||
+        notificationData?.fileName ||
+        (detail.pressAction?.id !== 'cancel-download'
+          ? detail.pressAction?.id
+          : undefined);
+      if (downloadId) {
+        const {cancelDownload} =
+          require('../downloadManager') as typeof import('../downloadManager');
+        await cancelDownload(String(downloadId));
       }
-      cancelHlsDownload(detail.notification?.data?.fileName!);
-      // FFMPEGKIT CANCEL
-      // FFmpegKit.cancel(Number(detail.notification?.data?.jobId));
-
-      // setAlreadyDownloaded(false);
-      try {
-        if (detail.notification?.data?.fileName) {
-          await deleteDownloadedFileByBaseName(
-            settingsStorage.getDownloadLocationConfig(),
-            detail.notification.data.fileName,
-          );
-        }
-      } catch (error) {
-        console.log(error);
-      }
+      return;
     }
 
     // Handle app update installation - check for both PRESS and ACTION_PRESS
@@ -318,14 +368,14 @@ class NotificationService {
         detail.notification?.data?.action === 'install')
     ) {
       console.log('Install action pressed');
-      const apkPath = `${RNFS.DownloadDirectoryPath}/${detail.notification?.data?.name}`;
+      const apkPath = detail.notification?.data?.filePath;
       console.log('APK path:', apkPath);
-      const res = await RNFS.exists(apkPath);
+      const res = apkPath ? await RNFS.exists(apkPath) : false;
       console.log('APK exists:', res);
       if (res) {
         console.log('Starting APK installation...');
         try {
-          await RNApkInstaller.install(apkPath);
+          await RNApkInstaller.install(apkPath!);
           console.log('APK installation initiated successfully');
         } catch (error) {
           console.error('APK installation error:', error);

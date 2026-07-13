@@ -1,5 +1,10 @@
 // Export StorageService
-export {StorageService, mainStorage, cacheStorage} from './StorageService';
+export {
+  StorageService,
+  mainStorage,
+  cacheStorage,
+  createZustandStorage,
+} from './StorageService';
 
 // Export SettingsStorage
 export {SettingsStorage, settingsStorage} from './SettingsStorage';
@@ -26,7 +31,7 @@ export type {ProvidersKeys} from './ProvidersStorage';
 
 // Export DownloadsStorage
 export {DownloadsStorage, downloadsStorage} from './DownloadsStorage';
-export type {DownloadsKeys} from './DownloadsStorage';
+export type {DownloadsKeys, DownloadPayload} from './DownloadsStorage';
 
 // Export ExtensionStorage
 export {ExtensionStorage, extensionStorage} from './extensionStorage';

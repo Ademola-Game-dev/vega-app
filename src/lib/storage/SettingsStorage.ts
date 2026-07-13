@@ -1,6 +1,5 @@
 import {mainStorage} from './StorageService';
 import {
-  defaultDownloadLocationConfig,
   DownloadLocationConfig,
   getDownloadLocationDisplayValue,
   parseDownloadLocation,
@@ -15,6 +14,7 @@ export enum SettingsKeys {
   PRIMARY_COLOR = 'primaryColor',
   IS_CUSTOM_THEME = 'isCustomTheme',
   SHOW_TAB_BAR_LABELS = 'showTabBarLabels',
+  HIDE_DOWNLOADS_TAB = 'hideDownloadsTab',
   CUSTOM_COLOR = 'customColor',
   // Feedback settings
   HAPTIC_FEEDBACK = 'hapticFeedback',
@@ -84,28 +84,30 @@ export class SettingsStorage {
 
   // UI preferences
   showTabBarLabels(): boolean {
-    return mainStorage.getBool(SettingsKeys.SHOW_TAB_BAR_LABELS) === null
-      ? false
-      : mainStorage.getBool(SettingsKeys.SHOW_TAB_BAR_LABELS);
+    return mainStorage.getBool(SettingsKeys.SHOW_TAB_BAR_LABELS, false);
   }
 
   setShowTabBarLabels(show: boolean): void {
     mainStorage.setBool(SettingsKeys.SHOW_TAB_BAR_LABELS, show);
   }
 
+  hideDownloadsTab(): boolean {
+    return mainStorage.getBool(SettingsKeys.HIDE_DOWNLOADS_TAB, false);
+  }
+
+  setHideDownloadsTab(hide: boolean): void {
+    mainStorage.setBool(SettingsKeys.HIDE_DOWNLOADS_TAB, hide);
+  }
+
   isHapticFeedbackEnabled(): boolean {
-    return mainStorage.getBool(SettingsKeys.HAPTIC_FEEDBACK) === null
-      ? true
-      : mainStorage.getBool(SettingsKeys.HAPTIC_FEEDBACK);
+    return mainStorage.getBool(SettingsKeys.HAPTIC_FEEDBACK, true);
   }
   setHapticFeedbackEnabled(enabled: boolean): void {
     mainStorage.setBool(SettingsKeys.HAPTIC_FEEDBACK, enabled);
   }
 
   isNotificationsEnabled(): boolean {
-    return mainStorage.getBool(SettingsKeys.NOTIFICATIONS_ENABLED) === null
-      ? true
-      : mainStorage.getBool(SettingsKeys.NOTIFICATIONS_ENABLED);
+    return mainStorage.getBool(SettingsKeys.NOTIFICATIONS_ENABLED, true);
   }
 
   setNotificationsEnabled(enabled: boolean): void {
@@ -114,9 +116,7 @@ export class SettingsStorage {
 
   // Update settings
   isAutoCheckUpdateEnabled(): boolean {
-    return mainStorage.getBool(SettingsKeys.AUTO_CHECK_UPDATE) === null
-      ? true
-      : mainStorage.getBool(SettingsKeys.AUTO_CHECK_UPDATE);
+    return mainStorage.getBool(SettingsKeys.AUTO_CHECK_UPDATE, true);
   }
 
   setAutoCheckUpdateEnabled(enabled: boolean): void {
@@ -124,7 +124,7 @@ export class SettingsStorage {
   }
 
   isAutoDownloadEnabled(): boolean {
-    return mainStorage.getBool(SettingsKeys.AUTO_DOWNLOAD);
+    return mainStorage.getBool(SettingsKeys.AUTO_DOWNLOAD, false);
   }
 
   setAutoDownloadEnabled(enabled: boolean): void {
@@ -133,9 +133,7 @@ export class SettingsStorage {
 
   // Player settings
   showMediaControls(): boolean {
-    return mainStorage.getBool(SettingsKeys.SHOW_MEDIA_CONTROLS) === null
-      ? true
-      : mainStorage.getBool(SettingsKeys.SHOW_MEDIA_CONTROLS);
+    return mainStorage.getBool(SettingsKeys.SHOW_MEDIA_CONTROLS, true);
   }
 
   setShowMediaControls(show: boolean): void {
@@ -143,9 +141,7 @@ export class SettingsStorage {
   }
 
   showHamburgerMenu(): boolean {
-    return mainStorage.getBool(SettingsKeys.SHOW_HAMBURGER_MENU) === null
-      ? true
-      : mainStorage.getBool(SettingsKeys.SHOW_HAMBURGER_MENU);
+    return mainStorage.getBool(SettingsKeys.SHOW_HAMBURGER_MENU, true);
   }
 
   setShowHamburgerMenu(show: boolean): void {
@@ -153,7 +149,7 @@ export class SettingsStorage {
   }
 
   hideSeekButtons(): boolean {
-    return mainStorage.getBool(SettingsKeys.HIDE_SEEK_BUTTONS);
+    return mainStorage.getBool(SettingsKeys.HIDE_SEEK_BUTTONS, false);
   }
 
   setHideSeekButtons(hide: boolean): void {
@@ -161,7 +157,7 @@ export class SettingsStorage {
   }
 
   isEnable2xGestureEnabled(): boolean {
-    return mainStorage.getBool(SettingsKeys.ENABLE_2X_GESTURE);
+    return mainStorage.getBool(SettingsKeys.ENABLE_2X_GESTURE, false);
   }
 
   setEnable2xGesture(enabled: boolean): void {
@@ -169,9 +165,7 @@ export class SettingsStorage {
   }
 
   isSwipeGestureEnabled(): boolean {
-    return mainStorage.getBool(SettingsKeys.ENABLE_SWIPE_GESTURE, true) === null
-      ? true
-      : mainStorage.getBool(SettingsKeys.ENABLE_SWIPE_GESTURE, true);
+    return mainStorage.getBool(SettingsKeys.ENABLE_SWIPE_GESTURE, true);
   }
 
   setSwipeGestureEnabled(enabled: boolean): void {
@@ -187,7 +181,7 @@ export class SettingsStorage {
     mainStorage.setArray(SettingsKeys.EXCLUDED_QUALITIES, qualities);
   }
 
-  getDownloadLocationConfig(): DownloadLocationConfig {
+  getDownloadLocationConfig(): DownloadLocationConfig | null {
     return parseDownloadLocation(
       mainStorage.getString(SettingsKeys.DOWNLOAD_LOCATION),
     );
@@ -197,27 +191,15 @@ export class SettingsStorage {
     return getDownloadLocationDisplayValue(this.getDownloadLocationConfig());
   }
 
-  setDownloadLocation(location: string | DownloadLocationConfig): void {
-    const nextLocation =
-      typeof location === 'string'
-        ? {
-            type: 'path' as const,
-            path: location.trim(),
-            label: location.trim(),
-          }
-        : location;
-
+  setDownloadLocation(location: DownloadLocationConfig): void {
     mainStorage.setString(
       SettingsKeys.DOWNLOAD_LOCATION,
-      serializeDownloadLocation(nextLocation),
+      serializeDownloadLocation(location),
     );
   }
 
   resetDownloadLocation(): void {
-    mainStorage.setString(
-      SettingsKeys.DOWNLOAD_LOCATION,
-      serializeDownloadLocation(defaultDownloadLocationConfig),
-    );
+    mainStorage.delete(SettingsKeys.DOWNLOAD_LOCATION);
   }
 
   // Subtitle settings
@@ -259,9 +241,7 @@ export class SettingsStorage {
 
   // Telemetry / Privacy
   isTelemetryOptIn(): boolean {
-    const val = mainStorage.getBool(SettingsKeys.TELEMETRY_OPT_IN);
-    // Default to true (opted in) unless explicitly disabled
-    return val === null ? true : (val as boolean);
+    return mainStorage.getBool(SettingsKeys.TELEMETRY_OPT_IN, true);
   }
 
   setTelemetryOptIn(enabled: boolean): void {
@@ -278,8 +258,7 @@ export class SettingsStorage {
   }
   // DNS over HTTPS
   isDohEnabled(): boolean {
-    const val = mainStorage.getBool(SettingsKeys.DOH_ENABLED);
-    return val === null ? true : (val as boolean);
+    return mainStorage.getBool(SettingsKeys.DOH_ENABLED, true);
   }
 
   setDohEnabled(enabled: boolean): void {

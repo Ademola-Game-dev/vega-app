@@ -4,6 +4,9 @@
   },
   "build": {
     "development": {
+      "env": {
+        "APP_VARIANT": "standalone"
+      },
       "developmentClient": true,
       "distribution": "internal",
       "android": {
@@ -12,6 +15,9 @@
       }
     },
     "preview": {
+      "env": {
+        "APP_VARIANT": "standalone"
+      },
       "distribution": "internal",
       "android": {
         "buildType": "apk",
@@ -19,6 +25,9 @@
       }
     },
     "production": {
+      "env": {
+        "APP_VARIANT": "playstore"
+      },
       "android": {
         "buildType": "aab",
         "gradleCommand": ":app:bundleRelease"

@@ -2,14 +2,14 @@ import {NativeModules, Platform} from 'react-native';
 
 const {TorrentModule} = NativeModules;
 
-interface TorrentFile {
+export interface TorrentFile {
   index: number;
   name: string;
   path: string;
   size: number;
 }
 
-interface TorrentAddResult {
+export interface TorrentAddResult {
   infoHash: string;
   state: string;
   hasMetadata: boolean;
@@ -18,7 +18,7 @@ interface TorrentAddResult {
   files?: TorrentFile[];
 }
 
-interface TorrentStats {
+export interface TorrentStats {
   state: string;
   progress: number;
   downloadRate: number;
@@ -30,6 +30,13 @@ interface TorrentStats {
   hasMetadata: boolean;
 }
 
+export interface TorrentCompleteResult {
+  success: boolean;
+  outputPath: string;
+  fileName: string;
+  size: number;
+}
+
 class TorrentManager {
   private streamPort: number | null = null;
   private isInitialized = false;
@@ -38,7 +45,9 @@ class TorrentManager {
     if (Platform.OS !== 'android') {
       throw new Error('Torrent streaming is only supported on Android');
     }
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      return;
+    }
 
     try {
       const result = await TorrentModule.initEngine();
@@ -56,7 +65,11 @@ class TorrentManager {
     options?: {output_folder?: string; file_name?: string},
   ): Promise<TorrentAddResult> {
     await this.init();
-    return await TorrentModule.addTorrent(magnetOrUrl, options?.output_folder || null, options?.file_name || null);
+    return await TorrentModule.addTorrent(
+      magnetOrUrl,
+      options?.output_folder || null,
+      options?.file_name || null,
+    );
   }
 
   async getStats(infoHash: string): Promise<TorrentStats> {
@@ -64,7 +77,7 @@ class TorrentManager {
     return await TorrentModule.getStats(infoHash);
   }
 
-  async getFiles(infoHash: String): Promise<TorrentFile[]> {
+  async getFiles(infoHash: string): Promise<TorrentFile[]> {
     await this.init();
     return await TorrentModule.getFiles(infoHash);
   }
@@ -87,6 +100,11 @@ class TorrentManager {
   async resumeTorrent(infoHash: string): Promise<void> {
     await this.init();
     await TorrentModule.resumeTorrent(infoHash);
+  }
+
+  async completeTorrent(infoHash: string): Promise<TorrentCompleteResult> {
+    await this.init();
+    return await TorrentModule.completeTorrent(infoHash);
   }
 
   async deleteTorrent(infoHash: string, deleteFiles = true): Promise<void> {

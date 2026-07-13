@@ -1,4 +1,5 @@
 import {MMKVLoader} from 'react-native-mmkv-storage';
+import type {StateStorage} from 'zustand/middleware';
 
 /**
  * Interface for the StorageService class
@@ -35,7 +36,7 @@ export class StorageService implements IStorageService {
 
   // String operations
   getString(key: string): string | undefined {
-    return this.storage.getString(key);
+    return this.storage.getString(key) ?? undefined;
   }
 
   setString(key: string, value: string): void {
@@ -45,7 +46,7 @@ export class StorageService implements IStorageService {
   // Boolean operations
   getBool(key: string, defaultValue?: boolean): boolean {
     const value = this.storage.getBool(key);
-    return value === undefined ? defaultValue || false : value;
+    return value == null ? defaultValue || false : value;
   }
 
   setBool(key: string, value: boolean): void {
@@ -55,7 +56,7 @@ export class StorageService implements IStorageService {
   // Number operations
   getNumber(key: string): number | undefined {
     // Use getInt or getFloat equivalent methods which exist in MMKV
-    return this.storage.getInt(key);
+    return this.storage.getInt(key) ?? undefined;
   }
 
   setNumber(key: string, value: number): void {
@@ -114,3 +115,11 @@ export class StorageService implements IStorageService {
 // Create and export default instances
 export const mainStorage: IStorageService = new StorageService();
 export const cacheStorage: IStorageService = new StorageService('cache');
+
+export const createZustandStorage = (
+  storage: IStorageService = mainStorage,
+): StateStorage => ({
+  getItem: name => storage.getString(name) ?? null,
+  setItem: (name, value) => storage.setString(name, value),
+  removeItem: name => storage.delete(name),
+});

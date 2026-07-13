@@ -1,10 +1,10 @@
 const {withAndroidManifest} = require('@expo/config-plugins');
 
 module.exports = function withNotifeeService(config) {
-  return withAndroidManifest(config, config => {
-    const androidManifest = config.modResults.manifest;
+  return withAndroidManifest(config, manifestConfig => {
+    const androidManifest = manifestConfig.modResults.manifest;
     if (!androidManifest.application) {
-      return config;
+      return manifestConfig;
     }
 
     const application = androidManifest.application[0];
@@ -14,7 +14,7 @@ module.exports = function withNotifeeService(config) {
 
     // Check if notifee foreground service is already added
     const existingService = application.service.find(
-      s => s.$ && s.$['android:name'] === 'app.notifee.core.ForegroundService'
+      s => s.$ && s.$['android:name'] === 'app.notifee.core.ForegroundService',
     );
 
     if (existingService) {
@@ -35,9 +35,9 @@ module.exports = function withNotifeeService(config) {
 
     // Also ensure xmlns:tools is present in the root manifest element
     if (!androidManifest.$['xmlns:tools']) {
-        androidManifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+      androidManifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
     }
 
-    return config;
+    return manifestConfig;
   });
 };

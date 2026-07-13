@@ -1,6 +1,18 @@
-const {withAndroidStyles} = require('@expo/config-plugins');
+const {
+  withAndroidManifest,
+  withAndroidStyles,
+} = require('@expo/config-plugins');
 
 const withAndroidNativeConfig = config => {
+  config = withAndroidManifest(config, manifestConfig => {
+    const application = manifestConfig.modResults.manifest.application?.[0];
+    if (application?.$) {
+      application.$['android:usesCleartextTraffic'] = 'true';
+    }
+
+    return manifestConfig;
+  });
+
   return withAndroidStyles(config, config => {
     // Safely access the styles
     const styles = config.modResults;

@@ -1,7 +1,6 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import * as FileSystem from 'expo-file-system/legacy';
-import {NativeModules} from 'react-native';
-import {defaultDownloadFolder} from './constants';
+import {NativeModules, Platform} from 'react-native';
 
 export type PathDownloadLocation = {
   type: 'path';
@@ -19,12 +18,6 @@ export type DownloadLocationConfig = PathDownloadLocation | SafDownloadLocation;
 
 const DOWNLOAD_LOCATION_PREFIX = 'download-location:';
 
-export const defaultDownloadLocationConfig: PathDownloadLocation = {
-  type: 'path',
-  path: defaultDownloadFolder,
-  label: defaultDownloadFolder,
-};
-
 export const serializeDownloadLocation = (
   config: DownloadLocationConfig,
 ): string => {
@@ -33,12 +26,15 @@ export const serializeDownloadLocation = (
 
 export const parseDownloadLocation = (
   storedValue?: string | null,
-): DownloadLocationConfig => {
+): DownloadLocationConfig | null => {
   if (!storedValue) {
-    return defaultDownloadLocationConfig;
+    return null;
   }
 
   if (!storedValue.startsWith(DOWNLOAD_LOCATION_PREFIX)) {
+    if (Platform.OS === 'android') {
+      return null;
+    }
     return {
       type: 'path',
       path: storedValue,
@@ -55,7 +51,7 @@ export const parseDownloadLocation = (
       return parsed;
     }
 
-    if (parsed.type === 'path' && parsed.path) {
+    if (parsed.type === 'path' && parsed.path && Platform.OS !== 'android') {
       return {
         type: 'path',
         path: parsed.path,
@@ -66,7 +62,7 @@ export const parseDownloadLocation = (
     console.log('Failed to parse download location:', error);
   }
 
-  return defaultDownloadLocationConfig;
+  return null;
 };
 
 export const isSafDownloadLocation = (
@@ -76,15 +72,96 @@ export const isSafDownloadLocation = (
 };
 
 export const getDownloadLocationDisplayValue = (
-  config: DownloadLocationConfig,
+  config?: DownloadLocationConfig | null,
 ): string => {
+  if (!config) {
+    return 'Select a download folder';
+  }
   return config.type === 'saf' ? config.label : config.path;
 };
 
 export const getDownloadLocationPath = (
-  config: DownloadLocationConfig,
+  config?: DownloadLocationConfig | null,
 ): string | null => {
-  return config.type === 'path' ? config.path : null;
+  return config?.type === 'path' ? config.path : null;
+};
+
+export const getAndroidDirectoryLabel = (directoryUri: string): string => {
+  const treeMarker = '/tree/';
+  const treeIndex = directoryUri.indexOf(treeMarker);
+  if (treeIndex === -1) {
+    return 'Custom folder';
+  }
+
+  const documentId = decodeURIComponent(
+    directoryUri.slice(treeIndex + treeMarker.length),
+  );
+  const [volume, relativePath = ''] = documentId.split(':');
+  if (!relativePath) {
+    return volume === 'primary' ? 'Internal storage' : volume;
+  }
+  return `${volume === 'primary' ? 'Internal storage' : volume}/${relativePath}`;
+};
+
+export const selectDownloadLocation = async (): Promise<
+  DownloadLocationConfig | undefined
+> => {
+  if (Platform.OS === 'android') {
+    const permissions =
+      await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!permissions.granted) {
+      return undefined;
+    }
+    return {
+      type: 'saf',
+      uri: permissions.directoryUri,
+      label: getAndroidDirectoryLabel(permissions.directoryUri),
+    };
+  }
+
+  const pickedFolders = await RNFS.pickFile({pickerType: 'folder'});
+  const pickedFolder = pickedFolders[0];
+  if (!pickedFolder) {
+    return undefined;
+  }
+  const path = pickedFolder.replace(/^file:\/\//, '');
+  return {type: 'path', path, label: path};
+};
+
+export const validateDownloadLocationAccess = async (
+  location?: DownloadLocationConfig | null,
+): Promise<boolean> => {
+  if (!location) {
+    return false;
+  }
+  try {
+    if (location.type === 'saf') {
+      await FileSystem.StorageAccessFramework.readDirectoryAsync(location.uri);
+      return true;
+    }
+    if (Platform.OS === 'android') {
+      return false;
+    }
+    if (!(await RNFS.exists(location.path))) {
+      await RNFS.mkdir(location.path);
+    }
+    return true;
+  } catch (error) {
+    console.log('Download location is unavailable:', error);
+    return false;
+  }
+};
+
+export const ensureDownloadLocationAccess = async (
+  location?: DownloadLocationConfig | null,
+): Promise<DownloadLocationConfig | undefined> => {
+  if (await validateDownloadLocationAccess(location)) {
+    return location || undefined;
+  }
+  const selectedLocation = await selectDownloadLocation();
+  return (await validateDownloadLocationAccess(selectedLocation))
+    ? selectedLocation
+    : undefined;
 };
 
 export const getDownloadFileName = (fileName: string, fileType: string) => {
@@ -96,10 +173,40 @@ export const getSafEntryName = (entryUri: string): string => {
   return decodedUri.slice(decodedUri.lastIndexOf('/') + 1);
 };
 
+export const getOrCreateSafDirectory = async (
+  parentUri: string,
+  directoryName: string,
+): Promise<string> => {
+  const entries =
+    await FileSystem.StorageAccessFramework.readDirectoryAsync(parentUri);
+  const existing = entries.find(
+    entry => getSafEntryName(entry) === directoryName,
+  );
+  return (
+    existing ||
+    FileSystem.StorageAccessFramework.makeDirectoryAsync(
+      parentUri,
+      directoryName,
+    )
+  );
+};
+
+export const findSafEntryByName = async (
+  parentUri: string,
+  entryName: string,
+): Promise<string | undefined> => {
+  const entries =
+    await FileSystem.StorageAccessFramework.readDirectoryAsync(parentUri);
+  return entries.find(entry => getSafEntryName(entry) === entryName);
+};
+
 export const findDownloadedFileByBaseName = async (
-  location: DownloadLocationConfig,
+  location: DownloadLocationConfig | null,
   fileName: string,
 ) => {
+  if (!location) {
+    return false;
+  }
   try {
     if (location.type === 'path') {
       const files = await RNFS.readDir(location.path);
@@ -132,7 +239,7 @@ export const findDownloadedFileByBaseName = async (
   }
 };
 
-const getMimeType = (fileType: string) => {
+export const getDownloadMimeType = (fileType: string) => {
   switch (fileType.toLowerCase()) {
     case 'mp4':
       return 'video/mp4';
@@ -170,7 +277,7 @@ export const copyFileToSaf = async ({
   const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
     directoryUri,
     targetFileName,
-    getMimeType(fileType),
+    getDownloadMimeType(fileType),
   );
 
   const safCopyModule = NativeModules.SafCopyModule as
@@ -198,7 +305,7 @@ export const copyFileToSaf = async ({
 };
 
 export const deleteDownloadedFileByBaseName = async (
-  location: DownloadLocationConfig,
+  location: DownloadLocationConfig | null,
   fileName: string,
 ) => {
   const foundFile = await findDownloadedFileByBaseName(location, fileName);

@@ -1,7 +1,10 @@
 import {FFmpegKit, FFprobeKit, ReturnCode} from 'ffmpeg-kit-react-native';
 import notifee from '@notifee/react-native';
-import {Downloads} from './zustand/downloadsStore';
 import {settingsStorage} from './storage';
+
+interface LegacyDownloadsAdapter {
+  removeActiveDownload: (fileName: string) => void;
+}
 
 const getVideoDuration = async (videoUrl: string) => {
   try {
@@ -31,7 +34,7 @@ export const hlsDownloader = async ({
   path: string;
   fileName: string;
   title: string;
-  downloadStore: Downloads;
+  downloadStore: LegacyDownloadsAdapter;
   setAlreadyDownloaded: (value: boolean) => void;
   setDownloadId: (value: number) => void;
   headers?: any;

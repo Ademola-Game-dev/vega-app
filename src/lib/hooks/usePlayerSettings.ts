@@ -34,7 +34,8 @@ export const usePlayerProgress = ({
         !routeParams?.doNotTrack
       ) {
         updatePlaybackInfo(
-          routeParams.episodeList[routeParams.linkIndex].link,
+          routeParams.infoUrl ||
+            routeParams.episodeList[routeParams.linkIndex].link,
           {
             currentTime,
             duration: seekableDuration,

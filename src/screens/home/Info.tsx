@@ -515,6 +515,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                       }}
                       type={info?.type || 'series'}
                       metaTitle={displayTitle}
+                      imdbId={info?.imdbId}
+                      synopsis={synopsis}
                       routeParams={route.params}
                     />
                   )}

@@ -57,6 +57,14 @@ export class DownloadsStorage {
     );
   }
 
+  takeLegacyDownloads(): Map<string, DownloadPayload> {
+    const downloads = this.getDownloads();
+    if (downloads.size > 0) {
+      mainStorage.delete(DownloadsKeys.DOWNLOADED_FILES);
+    }
+    return downloads;
+  }
+
   /**
    * Save download files information
    */

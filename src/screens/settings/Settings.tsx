@@ -8,7 +8,7 @@ import {
   ToastAndroid,
   TextInput,
 } from 'react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, {useCallback, useMemo, useState} from 'react';
 import {
   settingsStorage,
   cacheStorageService,
@@ -20,7 +20,7 @@ import {
   NativeStackScreenProps,
   NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
-import { SettingsStackParamList, TabStackParamList } from '../../App';
+import {SettingsStackParamList, TabStackParamList} from '../../App';
 import {
   MaterialCommunityIcons,
   Feather,
@@ -28,22 +28,30 @@ import {
 } from '@expo/vector-icons';
 import useThemeStore from '../../lib/zustand/themeStore';
 import useWatchHistoryStore from '../../lib/zustand/watchHistrory';
-import Animated, { FadeInDown, FadeInUp, Layout } from 'react-native-reanimated';
-import { useNavigation } from '@react-navigation/native';
+import Animated, {FadeInDown, FadeInUp, Layout} from 'react-native-reanimated';
+import {useNavigation} from '@react-navigation/native';
 import RenderProviderFlagIcon from '../../components/RenderProviderFLagIcon';
-import { Dropdown } from 'react-native-element-dropdown';
-import { DOH_PROVIDERS, DohProviderValue, syncDohSettings } from '../../lib/services/dohService';
+import {Dropdown} from 'react-native-element-dropdown';
+import {
+  DOH_PROVIDERS,
+  DohProviderValue,
+  syncDohSettings,
+} from '../../lib/services/dohService';
+import useNavigationPreferencesStore from '../../lib/zustand/navigationPreferencesStore';
 
 type Props = NativeStackScreenProps<SettingsStackParamList, 'Settings'>;
 
-const Settings = ({ navigation }: Props) => {
+const Settings = ({navigation}: Props) => {
   const tabNavigation =
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
-  const { primary } = useThemeStore(state => state);
-  const { provider, setProvider, installedProviders } = useContentStore(
+  const {primary} = useThemeStore(state => state);
+  const {provider, setProvider, installedProviders} = useContentStore(
     state => state,
   );
-  const { clearHistory } = useWatchHistoryStore(state => state);
+  const {clearHistory} = useWatchHistoryStore(state => state);
+  const hideDownloadsTab = useNavigationPreferencesStore(
+    state => state.hideDownloadsTab,
+  );
 
   const [dohProvider, setDohProvider] = useState<DohProviderValue>(
     settingsStorage.isDohEnabled()
@@ -75,8 +83,9 @@ const Settings = ({ navigation }: Props) => {
       <TouchableOpacity
         key={item.value}
         onPress={() => handleProviderSelect(item)}
-        className={`mr-3 rounded-lg ${isSelected ? 'bg-[#333333]' : 'bg-[#262626]'
-          }`}
+        className={`mr-3 rounded-lg ${
+          isSelected ? 'bg-[#333333]' : 'bg-[#262626]'
+        }`}
         style={{
           width: Dimensions.get('window').width * 0.3, // Shows 2.5 items
           height: 65, // Increased height
@@ -91,7 +100,7 @@ const Settings = ({ navigation }: Props) => {
             {item.display_name}
           </Text>
           {isSelected && (
-            <Text style={{ position: 'absolute', top: 6, right: 6 }}>
+            <Text style={{position: 'absolute', top: 6, right: 6}}>
               <MaterialIcons name="check-circle" size={16} color={primary} />
             </Text>
           )}
@@ -222,7 +231,10 @@ const Settings = ({ navigation }: Props) => {
                   labelField="label"
                   valueField="value"
                   value={dohProvider}
-                  onChange={async (item: { label: string; value: DohProviderValue }) => {
+                  onChange={async (item: {
+                    label: string;
+                    value: DohProviderValue;
+                  }) => {
                     setDohProvider(item.value);
                     if (item.value === 'off') {
                       settingsStorage.setDohEnabled(false);
@@ -244,15 +256,17 @@ const Settings = ({ navigation }: Props) => {
                     borderRadius: 8,
                   }}
                   activeColor="#333"
-                  selectedTextStyle={{ color: 'white', fontSize: 14 }}
-                  placeholderStyle={{ color: 'gray', fontSize: 14 }}
-                  itemTextStyle={{ color: 'white', fontSize: 14 }}
+                  selectedTextStyle={{color: 'white', fontSize: 14}}
+                  placeholderStyle={{color: 'gray', fontSize: 14}}
+                  itemTextStyle={{color: 'white', fontSize: 14}}
                   placeholder="Select DNS Provider"
                 />
               </View>
               {dohProvider === 'custom' && (
                 <View className="p-4">
-                  <Text className="text-gray-400 text-xs mb-2">Custom DoH URL</Text>
+                  <Text className="text-gray-400 text-xs mb-2">
+                    Custom DoH URL
+                  </Text>
                   <TextInput
                     style={{
                       color: 'white',
@@ -269,7 +283,10 @@ const Settings = ({ navigation }: Props) => {
                     onSubmitEditing={async () => {
                       settingsStorage.setDohCustomUrl(dohCustomUrl);
                       await syncDohSettings();
-                      ToastAndroid.show('Custom DNS applied', ToastAndroid.SHORT);
+                      ToastAndroid.show(
+                        'Custom DNS applied',
+                        ToastAndroid.SHORT,
+                      );
                     }}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -285,23 +302,6 @@ const Settings = ({ navigation }: Props) => {
           <View className="mb-6">
             <Text className="text-gray-400 text-sm mb-3">Options</Text>
             <View className="bg-[#1A1A1A] rounded-xl overflow-hidden">
-              {/* Downloads */}
-              <TouchableNativeFeedback
-                onPress={() => navigation.navigate('Downloads')}
-                background={TouchableNativeFeedback.Ripple('#333333', false)}>
-                <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
-                  <View className="flex-row items-center">
-                    <MaterialCommunityIcons
-                      name="folder-download"
-                      size={22}
-                      color={primary}
-                    />
-                    <Text className="text-white ml-3 text-base">Downloads</Text>
-                  </View>
-                  <Feather name="chevron-right" size={20} color="gray" />
-                </View>
-              </TouchableNativeFeedback>
-
               {/* Subtitle Style */}
               <TouchableNativeFeedback
                 onPress={async () => {
@@ -337,6 +337,26 @@ const Settings = ({ navigation }: Props) => {
                   <Feather name="chevron-right" size={20} color="gray" />
                 </View>
               </TouchableNativeFeedback> */}
+
+              {hideDownloadsTab && (
+                <TouchableNativeFeedback
+                  onPress={() => navigation.navigate('DownloadsStack')}
+                  background={TouchableNativeFeedback.Ripple('#333333', false)}>
+                  <View className="flex-row items-center justify-between p-4 border-b border-[#262626]">
+                    <View className="flex-row items-center">
+                      <MaterialCommunityIcons
+                        name="download-outline"
+                        size={22}
+                        color={primary}
+                      />
+                      <Text className="text-white ml-3 text-base">
+                        Downloads
+                      </Text>
+                    </View>
+                    <Feather name="chevron-right" size={20} color="gray" />
+                  </View>
+                </TouchableNativeFeedback>
+              )}
 
               {/* Watch History */}
               <TouchableNativeFeedback

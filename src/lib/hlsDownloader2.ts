@@ -1,6 +1,5 @@
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import axios from 'axios';
-import {notificationService} from './services/Notification';
 
 interface SegmentInfo {
   duration: number;
@@ -14,12 +13,8 @@ interface M3U8Data {
   isLive: boolean;
 }
 
-let downloadCancelled = false;
-let currentDownloadId: string | null = null;
-
-// Map to store the relationship between numeric IDs and fileName for HLS downloads
-const hlsDownloadMap = new Map<number, string>();
-let nextHlsId = 1000; // Start HLS IDs from 1000 to distinguish from RNFS job IDs
+const cancelledDownloads = new Set<string>();
+const activeDownloads = new Set<string>();
 
 const parseM3U8Playlist = async (
   url: string,
@@ -150,11 +145,12 @@ const parseM3U8Playlist = async (
 };
 
 const downloadSegment = async (
+  downloadId: string,
   segmentUrl: string,
   outputPath: string,
   headers: any = {},
 ): Promise<void> => {
-  if (downloadCancelled) {
+  if (cancelledDownloads.has(downloadId)) {
     throw new Error('Download cancelled');
   }
 
@@ -197,32 +193,30 @@ const mergeSegments = async (
 
 export const hlsDownloader2 = async ({
   videoUrl,
+  downloadId,
   path,
-  fileName,
   title,
-  setDownloadActive,
-  setAlreadyDownloaded,
-  setDownloadId,
+  tempDirectory,
+  onJobStarted,
+  onProgress,
+  onCompleted,
   headers = {},
 }: {
   videoUrl: string;
+  downloadId: string;
   path: string;
-  fileName: string;
   title: string;
-  setDownloadActive: (value: boolean) => void;
-  setAlreadyDownloaded: (value: boolean) => void;
-  setDownloadId: (value: number) => void;
+  tempDirectory?: string;
+  onJobStarted?: (jobId: string) => void;
+  onProgress?: (completedSegments: number, totalSegments: number) => void;
+  onCompleted?: (outputPath: string) => void | Promise<void>;
   headers?: any;
 }) => {
-  downloadCancelled = false;
-  currentDownloadId = fileName;
+  cancelledDownloads.delete(downloadId);
+  activeDownloads.add(downloadId);
+  onJobStarted?.(downloadId);
 
-  // Generate a unique numeric ID for this HLS download
-  const hlsJobId = nextHlsId++;
-  hlsDownloadMap.set(hlsJobId, fileName);
-  setDownloadId(hlsJobId);
-
-  const tempDir = RNFS.CachesDirectoryPath + '/hls_segments/';
+  const tempDir = tempDirectory || `${RNFS.CachesDirectoryPath}/hls_segments`;
 
   try {
     // Ensure temp directory exists
@@ -248,18 +242,19 @@ export const hlsDownloader2 = async ({
 
     // Download segments in batches
     for (let i = 0; i < m3u8Data.segments.length; i += maxConcurrentDownloads) {
-      if (downloadCancelled) {
+      if (cancelledDownloads.has(downloadId)) {
         throw new Error('Download cancelled by user');
       }
 
       const batch = m3u8Data.segments.slice(i, i + maxConcurrentDownloads);
       const batchPromises = batch.map(async segment => {
-        const segmentPath = tempDir + `segment_${segment.index}.ts`;
+        const segmentPath = `${tempDir}/segment_${segment.index}.ts`;
         segmentPaths[segment.index] = segmentPath;
 
         try {
-          await downloadSegment(segment.url, segmentPath, headers);
+          await downloadSegment(downloadId, segment.url, segmentPath, headers);
           downloadedSegments++;
+          onProgress?.(downloadedSegments, m3u8Data.segments.length);
 
           const progress =
             (downloadedSegments / m3u8Data.segments.length) * 100;
@@ -268,13 +263,6 @@ export const hlsDownloader2 = async ({
             `Downloaded segment ${segment.index + 1}/${
               m3u8Data.segments.length
             } (${progress.toFixed(1)}%)`,
-          );
-          await notificationService.showDownloadProgress(
-            title,
-            fileName,
-            progress / 100,
-            `Downloaded ${progress.toFixed(1)}%`,
-            hlsJobId,
           );
         } catch (error) {
           console.error(`Failed to download segment ${segment.index}:`, error);
@@ -290,20 +278,12 @@ export const hlsDownloader2 = async ({
       }
     }
 
-    if (downloadCancelled) {
+    if (cancelledDownloads.has(downloadId)) {
       throw new Error('Download cancelled by user');
     }
 
     // Merge all segments into final file
     console.log('Merging segments...');
-    await notificationService.showDownloadProgress(
-      title,
-      fileName,
-      1,
-      'Merging video segments...',
-      hlsJobId,
-    );
-
     await mergeSegments(segmentPaths, path);
 
     // Clean up temp directory
@@ -311,7 +291,7 @@ export const hlsDownloader2 = async ({
       await RNFS.unlink(tempDir);
     }
 
-    if (downloadCancelled) {
+    if (cancelledDownloads.has(downloadId)) {
       // Clean up the output file if cancelled during merge
       if (await RNFS.exists(path)) {
         await RNFS.unlink(path);
@@ -321,16 +301,11 @@ export const hlsDownloader2 = async ({
 
     // Success
     console.log('Download completed successfully');
-    setAlreadyDownloaded(true);
-    setDownloadActive(false);
-
-    await notificationService.showDownloadComplete(title, fileName);
+    await onCompleted?.(path);
   } catch (error) {
     console.error('HLS download failed:', error);
 
-    // Clean up on error
-    setAlreadyDownloaded(false);
-    setDownloadActive(false);
+    const cancelled = cancelledDownloads.has(downloadId);
 
     if (await RNFS.exists(tempDir)) {
       await RNFS.unlink(tempDir);
@@ -340,53 +315,26 @@ export const hlsDownloader2 = async ({
       await RNFS.unlink(path);
     }
 
-    const errorMessage = downloadCancelled
+    const errorMessage = cancelled
       ? 'Download cancelled'
       : `Failed to download ${title}`;
     console.error(errorMessage);
 
-    if (downloadCancelled) {
-      await notificationService.cancelNotification(fileName);
-    } else {
-      await notificationService.showDownloadFailed(title, fileName);
-    }
+    throw error;
   } finally {
-    currentDownloadId = null;
-    // Clean up the mapping
-    hlsDownloadMap.delete(hlsJobId);
+    activeDownloads.delete(downloadId);
+    cancelledDownloads.delete(downloadId);
   }
 };
 
 // Function to cancel ongoing download
-export const cancelHlsDownload = (downloadId: number | string) => {
-  // Handle both numeric HLS job IDs and string fileName
-  let targetFileName: string | null = null;
-
-  if (typeof downloadId === 'number') {
-    // It's an HLS job ID, get the fileName from mapping
-    targetFileName = hlsDownloadMap.get(downloadId) || null;
-  } else {
-    // It's a fileName directly
-    targetFileName = downloadId;
-  }
-
-  if (currentDownloadId === targetFileName) {
-    downloadCancelled = true;
-    console.log(`Cancelling HLS download: ${targetFileName}`);
+export const cancelHlsDownload = (downloadId: string) => {
+  if (activeDownloads.has(downloadId)) {
+    cancelledDownloads.add(downloadId);
+    console.log(`Cancelling HLS download: ${downloadId}`);
   }
 };
 
 // Check if a download is in progress
-export const isHlsDownloadInProgress = (
-  downloadId: number | string,
-): boolean => {
-  let targetFileName: string | null = null;
-
-  if (typeof downloadId === 'number') {
-    targetFileName = hlsDownloadMap.get(downloadId) || null;
-  } else {
-    targetFileName = downloadId;
-  }
-
-  return currentDownloadId === targetFileName && !downloadCancelled;
-};
+export const isHlsDownloadInProgress = (downloadId: string): boolean =>
+  activeDownloads.has(downloadId) && !cancelledDownloads.has(downloadId);
