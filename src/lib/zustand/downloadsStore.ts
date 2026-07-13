@@ -477,10 +477,7 @@ export const useDownloadsStore = create<DownloadState>()(
 export const selectCurrentDownloads = (state: DownloadState): DownloadItem[] =>
   Object.values(state.downloads)
     .filter(item => CURRENT_DOWNLOAD_STATUSES.has(item.status))
-    .sort(
-      (a, b) =>
-        a.createdAt - b.createdAt || a.id.localeCompare(b.id),
-    );
+    .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
 
 export const selectCompletedDownloads = (
   state: DownloadState,
