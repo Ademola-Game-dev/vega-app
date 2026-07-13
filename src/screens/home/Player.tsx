@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, {useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import {
   AppState,
   AppStateStatus,
@@ -19,12 +19,12 @@ import Animated, {
   withSequence,
   withDelay,
 } from 'react-native-reanimated';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { cacheStorage, settingsStorage } from '../../lib/storage';
-import { OrientationLocker, LANDSCAPE } from 'react-native-orientation-locker';
+import {NativeStackScreenProps} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../App';
+import {cacheStorage, settingsStorage} from '../../lib/storage';
+import {OrientationLocker, LANDSCAPE} from 'react-native-orientation-locker';
 import VideoPlayer from '@8man/react-native-media-console';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import {useFocusEffect, useNavigation} from '@react-navigation/native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   VideoRef,
@@ -36,21 +36,21 @@ import {
 } from 'react-native-video';
 import useContentStore from '../../lib/zustand/contentStore';
 // import {CastButton, useRemoteMediaClient} from 'react-native-google-cast';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 // import GoogleCast from 'react-native-google-cast';
 import * as DocumentPicker from 'expo-document-picker';
 import useThemeStore from '../../lib/zustand/themeStore';
-import { FlashList } from '@shopify/flash-list';
+import {FlashList} from '@shopify/flash-list';
 import SearchSubtitles from '../../components/SearchSubtitles';
 import useWatchHistoryStore from '../../lib/zustand/watchHistrory';
-import { useStream, useVideoSettings } from '../../lib/hooks/useStream';
+import {useStream, useVideoSettings} from '../../lib/hooks/useStream';
 import {
   usePlayerProgress,
   usePlayerSettings,
 } from '../../lib/hooks/usePlayerSettings';
 import * as NavigationBar from 'expo-navigation-bar';
-import { StatusBar } from 'react-native';
-import { torrentManager } from '../../lib/torrentManager';
+import {StatusBar} from 'react-native';
+import {torrentManager} from '../../lib/torrentManager';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Player'>;
 
@@ -93,11 +93,11 @@ const reapplyFullscreenMode = (isFullScreenEnabled: boolean) => {
   }
 };
 
-const Player = ({ route }: Props): React.JSX.Element => {
-  const { primary } = useThemeStore(state => state);
-  const { provider } = useContentStore();
+const Player = ({route}: Props): React.JSX.Element => {
+  const {primary} = useThemeStore(state => state);
+  const {provider} = useContentStore();
   const navigation = useNavigation();
-  const { addItem, updatePlaybackInfo, updateItemWithInfo } =
+  const {addItem, updatePlaybackInfo, updateItemWithInfo} =
     useWatchHistoryStore();
 
   // Player ref
@@ -121,20 +121,20 @@ const Player = ({ route }: Props): React.JSX.Element => {
   // Animated styles
   const loadingContainerStyle = useAnimatedStyle(() => ({
     opacity: loadingOpacity.value,
-    transform: [{ scale: loadingScale.value }],
+    transform: [{scale: loadingScale.value}],
   }));
 
   const loadingIconStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${loadingRotation.value}deg` }],
+    transform: [{rotate: `${loadingRotation.value}deg`}],
   }));
 
   const lockButtonStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: lockButtonTranslateY.value }],
+    transform: [{translateY: lockButtonTranslateY.value}],
     opacity: lockButtonOpacity.value,
   }));
 
   const controlsStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: controlsTranslateY.value }],
+    transform: [{translateY: controlsTranslateY.value}],
     opacity: controlsOpacity.value,
   }));
 
@@ -142,13 +142,12 @@ const Player = ({ route }: Props): React.JSX.Element => {
     opacity: controlsOpacity.value,
   }));
 
-
   const toastStyle = useAnimatedStyle(() => ({
     opacity: toastOpacity.value,
   }));
 
   const settingsStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: settingsTranslateY.value }],
+    transform: [{translateY: settingsTranslateY.value}],
 
     opacity: settingsOpacity.value,
   }));
@@ -222,7 +221,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
   const isFullScreenRef = useRef(isFullScreen);
 
   // Custom hook for progress handling
-  const { videoPositionRef, handleProgress } = usePlayerProgress({
+  const {videoPositionRef, handleProgress} = usePlayerProgress({
     activeEpisode,
     routeParams: route.params,
     playbackRate,
@@ -280,7 +279,17 @@ const Player = ({ route }: Props): React.JSX.Element => {
       throw new Error('No files found in torrent');
     }
 
-    const videoExts = ['.mp4', '.mkv', '.avi', '.webm', '.mov', '.ts', '.flv', '.wmv', '.m4v'];
+    const videoExts = [
+      '.mp4',
+      '.mkv',
+      '.avi',
+      '.webm',
+      '.mov',
+      '.ts',
+      '.flv',
+      '.wmv',
+      '.m4v',
+    ];
     let bestIndex = 0;
     let bestSize = 0;
     for (const f of files) {
@@ -305,7 +314,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
         activeTorrentRef.current = null;
         try {
           await torrentManager.deleteTorrent(prevHash, true);
-        } catch { }
+        } catch {}
       }
     };
 
@@ -315,11 +324,22 @@ const Player = ({ route }: Props): React.JSX.Element => {
         return;
       }
 
-      const isTorrent = selectedStream.type === 'torrent' || selectedStream.link.startsWith('magnet:');
+      const isTorrent =
+        selectedStream.type === 'torrent' ||
+        selectedStream.link.startsWith('magnet:');
       if (isTorrent) {
         try {
-          if (!selectedStream.link || selectedStream.link.includes('d41d0cfbf8baa3ce04a7074b0c486243dd5fbd00') || selectedStream.link.includes('d41d8cd98f00b204e9800998ecf8427e')) {
-            console.warn('Ignoring empty or dummy torrent hash:', selectedStream.link);
+          if (
+            !selectedStream.link ||
+            selectedStream.link.includes(
+              'd41d0cfbf8baa3ce04a7074b0c486243dd5fbd00',
+            ) ||
+            selectedStream.link.includes('d41d8cd98f00b204e9800998ecf8427e')
+          ) {
+            console.warn(
+              'Ignoring empty or dummy torrent hash:',
+              selectedStream.link,
+            );
             switchToNextStream();
             return;
           }
@@ -330,12 +350,13 @@ const Player = ({ route }: Props): React.JSX.Element => {
           const addData = await torrentManager.addTorrent(selectedStream.link);
           const infoHash = addData.infoHash;
           if (!isMounted) {
-            torrentManager.deleteTorrent(infoHash, true).catch(() => { });
+            torrentManager.deleteTorrent(infoHash, true).catch(() => {});
             return;
           }
           activeTorrentRef.current = infoHash;
 
-          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+          if (progressIntervalRef.current)
+            clearInterval(progressIntervalRef.current);
           if (isMounted) {
             progressIntervalRef.current = setInterval(async () => {
               try {
@@ -345,13 +366,20 @@ const Player = ({ route }: Props): React.JSX.Element => {
                   setTorrentDownloaded((stats.totalDone || 0) / 1024 / 1024);
                   setTorrentDownloadSpeed(stats.downloadRate || 0);
                 }
-              } catch (e) { }
+              } catch (e) {}
             }, 1000);
           }
 
           if (isMounted) {
             const videoFileIndex = await findVideoFileIndex(infoHash);
-            const streamUrl = await torrentManager.getStreamUrl(infoHash, videoFileIndex);
+            await torrentManager.prepareVideoFile(infoHash, videoFileIndex);
+            if (!isMounted) {
+              return;
+            }
+            const streamUrl = await torrentManager.getStreamUrl(
+              infoHash,
+              videoFileIndex,
+            );
             console.log('Torrent stream URL:', streamUrl);
             setProcessedStreamUrl(streamUrl);
           }
@@ -640,14 +668,14 @@ const Player = ({ route }: Props): React.JSX.Element => {
   useEffect(() => {
     // Loading animations
     if (streamLoading) {
-      loadingOpacity.value = withTiming(1, { duration: 800 });
-      loadingScale.value = withTiming(1, { duration: 800 });
+      loadingOpacity.value = withTiming(1, {duration: 800});
+      loadingScale.value = withTiming(1, {duration: 800});
       loadingRotation.value = withRepeat(
         withSequence(
-          withDelay(500, withTiming(180, { duration: 900 })),
-          withTiming(180, { duration: 600 }),
-          withTiming(360, { duration: 900 }),
-          withTiming(360, { duration: 600 }),
+          withDelay(500, withTiming(180, {duration: 900})),
+          withTiming(180, {duration: 600}),
+          withTiming(360, {duration: 900}),
+          withTiming(360, {duration: 600}),
         ),
         -1,
       );
@@ -668,20 +696,20 @@ const Player = ({ route }: Props): React.JSX.Element => {
 
   useEffect(() => {
     // 2x speed text visibility
-    textVisibility.value = withTiming(isTextVisible ? 1 : 0, { duration: 250 });
+    textVisibility.value = withTiming(isTextVisible ? 1 : 0, {duration: 250});
 
     // Speed icon blinking animation
     if (isTextVisible) {
       speedIconOpacity.value = withRepeat(
         withSequence(
-          withTiming(1, { duration: 250 }),
-          withTiming(0, { duration: 150 }),
-          withTiming(1, { duration: 150 }),
+          withTiming(1, {duration: 250}),
+          withTiming(0, {duration: 150}),
+          withTiming(1, {duration: 150}),
         ),
         -1,
       );
     } else {
-      speedIconOpacity.value = withTiming(1, { duration: 150 });
+      speedIconOpacity.value = withTiming(1, {duration: 150});
     }
   }, [isTextVisible]);
 
@@ -697,7 +725,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
 
   useEffect(() => {
     // Toast visibility
-    toastOpacity.value = withTiming(showToast ? 1 : 0, { duration: 250 });
+    toastOpacity.value = withTiming(showToast ? 1 : 0, {duration: 250});
   }, [showToast]);
 
   useEffect(() => {
@@ -725,9 +753,9 @@ const Player = ({ route }: Props): React.JSX.Element => {
       source: {
         textTracks: externalSubs,
         uri: processedStreamUrl || '',
-        bufferConfig: { backBufferDurationMs: 30000 },
+        bufferConfig: {backBufferDurationMs: 30000},
         shouldCache: true,
-        ...(selectedStream?.type === 'm3u8' && { type: 'm3u8' }),
+        ...(selectedStream?.type === 'm3u8' && {type: 'm3u8'}),
         headers: selectedStream?.headers,
         metadata: {
           title: route.params?.primaryTitle,
@@ -783,7 +811,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
       onTextTracks: (e: any) => setTextTracks(e.textTracks),
       onVideoTracks: (e: any) => processVideoTracks(e.videoTracks),
       selectedVideoTrack,
-      style: { flex: 1, zIndex: 100 },
+      style: {flex: 1, zIndex: 100},
       controlAnimationTiming: 357,
       controlTimeoutDelay: 10000,
       hideAllControlls: isPlayerLocked,
@@ -820,7 +848,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
   if (streamLoading) {
     return (
       <SafeAreaView
-        edges={{ right: 'off', top: 'off', left: 'off', bottom: 'off' }}
+        edges={{right: 'off', top: 'off', left: 'off', bottom: 'off'}}
         className="bg-black flex-1 justify-center items-center">
         <StatusBar translucent={true} hidden={true} />
         <OrientationLocker orientation={LANDSCAPE} />
@@ -879,25 +907,32 @@ const Player = ({ route }: Props): React.JSX.Element => {
       <VideoPlayer {...videoPlayerProps} />
 
       {/* Non-intrusive Torrent Status Overlay */}
-      {selectedStream?.type === 'torrent' && !streamLoading && torrentState !== 'seeding' && torrentState !== 'finished' && (
-        <Animated.View
-          className="absolute top-4 self-center px-3 py-1.5 rounded-full items-center"
-          style={controlsOpacityStyle}
-          pointerEvents="none">
-
-          {torrentState !== 'Fetching Metadata...' ? (
-            <Text className="text-white/70 text-[10px] mt-0.5">
-              {torrentDownloaded > 0 ? `${torrentDownloaded.toFixed(1)} MB` : ''}
-              {torrentDownloadSpeed > 0 ? ` @ ${(torrentDownloadSpeed / 1024 / 1024).toFixed(1)} MB/s` : ''}
-            </Text>
-          )
-            :
-            (<Text className="text-white/90 text-xs font-medium">
-              {torrentState === 'Fetching Metadata...' ? 'Fetching Metadata' : ''}
-            </Text>
+      {selectedStream?.type === 'torrent' &&
+        !streamLoading &&
+        torrentState !== 'seeding' &&
+        torrentState !== 'finished' && (
+          <Animated.View
+            className="absolute top-4 self-center px-3 py-1.5 rounded-full items-center"
+            style={controlsOpacityStyle}
+            pointerEvents="none">
+            {torrentState !== 'Fetching Metadata...' ? (
+              <Text className="text-white/70 text-[10px] mt-0.5">
+                {torrentDownloaded > 0
+                  ? `${torrentDownloaded.toFixed(1)} MB`
+                  : ''}
+                {torrentDownloadSpeed > 0
+                  ? ` @ ${(torrentDownloadSpeed / 1024 / 1024).toFixed(1)} MB/s`
+                  : ''}
+              </Text>
+            ) : (
+              <Text className="text-white/90 text-xs font-medium">
+                {torrentState === 'Fetching Metadata...'
+                  ? 'Fetching Metadata'
+                  : ''}
+              </Text>
             )}
-        </Animated.View>
-      )}
+          </Animated.View>
+        )}
 
       {/* Full-screen overlay to detect taps when locked */}
       {isPlayerLocked && (
@@ -952,7 +987,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
             }}
             className="flex flex-row gap-x-1 items-center">
             <MaterialIcons
-              style={{ opacity: 0.7 }}
+              style={{opacity: 0.7}}
               name={'multitrack-audio'}
               size={26}
               color="white"
@@ -970,7 +1005,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
             }}
             className="flex flex-row gap-x-1 items-center">
             <MaterialIcons
-              style={{ opacity: 0.6 }}
+              style={{opacity: 0.6}}
               name={'subtitles'}
               size={24}
               color="white"
@@ -1023,9 +1058,9 @@ const Player = ({ route }: Props): React.JSX.Element => {
               {videoTracks?.length === 1
                 ? formatQuality(videoTracks[0]?.height?.toString() || 'auto')
                 : formatQuality(
-                  videoTracks?.[selectedQualityIndex]?.height?.toString() ||
-                  'auto',
-                )}
+                    videoTracks?.[selectedQualityIndex]?.height?.toString() ||
+                      'auto',
+                  )}
             </Text>
           </TouchableOpacity>
 
@@ -1049,8 +1084,8 @@ const Player = ({ route }: Props): React.JSX.Element => {
           {route.params?.episodeList?.indexOf(activeEpisode) <
             route.params?.episodeList?.length - 1 &&
             videoPositionRef.current.position /
-            videoPositionRef.current.duration >
-            0.8 && (
+              videoPositionRef.current.duration >
+              0.8 && (
               <TouchableOpacity
                 className="flex-row items-center opacity-60"
                 onPress={handleNextEpisode}>
@@ -1217,7 +1252,7 @@ const Player = ({ route }: Props): React.JSX.Element => {
                     />
                   </>
                 }
-                renderItem={({ item: track }) => (
+                renderItem={({item: track}) => (
                   <TouchableOpacity
                     className="flex-row gap-3 items-center rounded-md my-1 overflow-hidden ml-2"
                     onPress={() => {
