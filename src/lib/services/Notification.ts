@@ -133,7 +133,7 @@ class NotificationService {
         progress: options.progress,
         actions: options.actions,
         onlyAlertOnce: options.onlyAlertOnce || false,
-        asForegroundService: options.asForegroundService,
+        asForegroundService: options.asForegroundService ?? false,
         foregroundServiceTypes: options.asForegroundService ? [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC] : undefined,
       },
     });
