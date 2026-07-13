@@ -69,7 +69,7 @@ export const startDownload = async (
   await notificationService.ensureDownloadPermission().catch(() => false);
   activeDownloads.add(downloadId);
   cancelledDownloads.delete(downloadId);
-  notificationService.startForegroundTask(downloadId);
+  await notificationService.startForegroundTask(downloadId);
   let unsubscribe = () => undefined;
 
   try {

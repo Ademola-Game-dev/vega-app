@@ -99,14 +99,60 @@ describe('notification service download lifecycle', () => {
   });
 
   it('keeps the foreground service while another download remains active', async () => {
-    notificationService.startForegroundTask('first');
-    notificationService.startForegroundTask('second');
+    await notificationService.startForegroundTask('first');
+    await notificationService.startForegroundTask('second');
+
+    expect(mockDisplayNotification).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'downloadForegroundService',
+        body: '2 active downloads',
+        android: expect.objectContaining({asForegroundService: true}),
+      }),
+    );
 
     await notificationService.stopForegroundTask('first');
     expect(mockStopForegroundService).not.toHaveBeenCalled();
+    expect(mockDisplayNotification).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'downloadForegroundService',
+        body: '1 active download',
+      }),
+    );
 
     await notificationService.stopForegroundTask('second');
     expect(mockStopForegroundService).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps simultaneous episode progress notifications separate', async () => {
+    await notificationService.showDownloadProgress(
+      'Episode 1',
+      'show_s1_e1',
+      0.25,
+      '25 / 100 MB',
+      'http',
+    );
+    await notificationService.showDownloadProgress(
+      'Episode 2',
+      'show_s1_e2',
+      0.5,
+      '50 / 100 MB',
+      'http',
+    );
+
+    expect(mockDisplayNotification).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        id: 'show_s1_e1',
+        android: expect.objectContaining({asForegroundService: false}),
+      }),
+    );
+    expect(mockDisplayNotification).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        id: 'show_s1_e2',
+        android: expect.objectContaining({asForegroundService: false}),
+      }),
+    );
   });
 
   it('routes stable download cancellation through the global manager', async () => {

@@ -48,6 +48,7 @@ class NotificationService {
   private _defaultChannelId = 'default';
   private _downloadChannelId = 'download';
   private _updateChannelId = 'update';
+  private _downloadForegroundId = 'downloadForegroundService';
   private initialized = false;
   private permissionRequest?: Promise<boolean>;
 
@@ -210,15 +211,32 @@ class NotificationService {
 
   private readonly _activeForegroundTasks = new Set<string>();
 
-  startForegroundTask(downloadId: string) {
+  private async updateDownloadForegroundNotification(): Promise<void> {
+    const count = this._activeForegroundTasks.size;
+    if (count === 0) {
+      return;
+    }
+    await this.displayDownloadNotification({
+      id: this._downloadForegroundId,
+      title: count === 1 ? 'Download in progress' : 'Downloads in progress',
+      body: count === 1 ? '1 active download' : `${count} active downloads`,
+      onlyAlertOnce: true,
+      asForegroundService: true,
+    });
+  }
+
+  async startForegroundTask(downloadId: string): Promise<void> {
     this._activeForegroundTasks.add(downloadId);
+    await this.updateDownloadForegroundNotification();
   }
 
   async stopForegroundTask(downloadId: string) {
     this._activeForegroundTasks.delete(downloadId);
     if (this._activeForegroundTasks.size === 0) {
       await notifee.stopForegroundService();
+      return;
     }
+    await this.updateDownloadForegroundNotification();
   }
 
   async resetDownloadForegroundState(): Promise<void> {
@@ -251,7 +269,6 @@ class NotificationService {
         current: 0,
         indeterminate: true,
       },
-      asForegroundService: true,
     });
   }
 
@@ -284,7 +301,6 @@ class NotificationService {
         },
       ],
       onlyAlertOnce: true,
-      asForegroundService: true,
     });
   }
 
