@@ -1184,3 +1184,32 @@ index e16ac96..5a47afc 100644
      public void setSelectedVideoTrack(String type, String value) {
          videoTrackType = type;
          videoTrackValue = value;
+diff --git a/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt b/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt
+--- a/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt
++++ b/node_modules/react-native-video/android/src/main/java/com/brentvatne/exoplayer/ExoPlayerView.kt
+@@ -5,6 +5,7 @@ import android.graphics.drawable.GradientDrawable
+ import android.util.AttributeSet
+ import android.view.View
+ import android.view.View.MeasureSpec
++import android.view.ViewGroup
+ import android.widget.FrameLayout
+ import android.widget.TextView
+ import androidx.media3.common.Player
+@@ -109,5 +110,17 @@ class ExoPlayerView @JvmOverloads constructor(context: Context, attrs: Attribute
+     fun setSubtitleStyle(style: SubtitleStyle) {
+         playerView.subtitleView?.let { subtitleView ->
++            val contentFrame = playerView.findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
++            val subtitleParent = if (style.subtitlesFollowVideo) contentFrame else playerView
++            if (subtitleParent != null && subtitleView.parent !== subtitleParent) {
++                (subtitleView.parent as? ViewGroup)?.removeView(subtitleView)
++                val layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
++                if (subtitleParent === playerView) {
++                    subtitleParent.addView(subtitleView, playerView.indexOfChild(contentFrame) + 1, layoutParams)
++                } else {
++                    subtitleParent.addView(subtitleView, layoutParams)
++                }
++            }
++
+             // Reset to defaults
+             subtitleView.setUserDefaultStyle()
+             subtitleView.setUserDefaultTextSize()
