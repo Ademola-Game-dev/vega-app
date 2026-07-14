@@ -509,7 +509,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
                 if (localDownload?.status === 'completed') {
                   navigation.navigate('Player', {
                     episodeList: [
-                      {title: item.title, link: localDownload.filePath},
+                      {
+                        id: localDownload.id,
+                        title: item.title,
+                        link: localDownload.filePath,
+                        sourceLink: localDownload.sourceLink,
+                      },
                     ],
                     linkIndex: 0,
                     type: '',
@@ -617,7 +622,12 @@ const SeasonList: React.FC<SeasonListProps> = ({
                 if (localDownload?.status === 'completed') {
                   navigation.navigate('Player', {
                     episodeList: [
-                      {title: item.title, link: localDownload.filePath},
+                      {
+                        id: localDownload.id,
+                        title: item.title,
+                        link: localDownload.filePath,
+                        sourceLink: localDownload.sourceLink,
+                      },
                     ],
                     linkIndex: 0,
                     type: '',

@@ -229,6 +229,17 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        syncFromSharedFolder().catch(error =>
+          console.warn('[VegaSync] Periodic sync failed:', error),
+        );
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     // Apply telemetry preference before using analytics
     const optIn = settingsStorage.isTelemetryOptIn();
     if (hasFirebase) {

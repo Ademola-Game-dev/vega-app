@@ -51,6 +51,8 @@ import {
 import * as NavigationBar from 'expo-navigation-bar';
 import {StatusBar} from 'react-native';
 import {torrentManager} from '../../lib/torrentManager';
+import {syncFromSharedFolder} from '../../lib/sync/syncService';
+import {getHistoryEpisodeId} from '../../lib/historyIdentity';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Player'>;
 
@@ -94,6 +96,12 @@ const reapplyFullscreenMode = (isFullScreenEnabled: boolean) => {
 };
 
 const Player = ({route}: Props): React.JSX.Element => {
+  useEffect(() => {
+    syncFromSharedFolder().catch(error =>
+      console.warn('[VegaSync] Player sync failed:', error),
+    );
+  }, []);
+
   const {primary} = useThemeStore(state => state);
   const {provider} = useContentStore();
   const navigation = useNavigation();
@@ -103,6 +111,8 @@ const Player = ({route}: Props): React.JSX.Element => {
   // Player ref
   const playerRef = useRef<VideoRef>(null as unknown as VideoRef);
   const hasSetInitialTracksRef = useRef(false);
+  const videoLoadedRef = useRef(false);
+  const resumeAppliedRef = useRef(false);
 
   // Shared values for animations
   const loadingOpacity = useSharedValue(0);
@@ -249,8 +259,7 @@ const Player = ({route}: Props): React.JSX.Element => {
 
   // Memoized watched duration
   const watchedDuration = useMemo(() => {
-    const historyKey =
-      activeEpisode?.id || activeEpisode?.sourceLink || activeEpisode?.link;
+    const historyKey = getHistoryEpisodeId(activeEpisode);
     const syncedProgress = history.find(
       item => item.id === historyKey,
     )?.progress;
@@ -265,6 +274,23 @@ const Player = ({route}: Props): React.JSX.Element => {
     activeEpisode?.sourceLink,
     history,
   ]);
+
+  useEffect(() => {
+    resumeAppliedRef.current = false;
+    videoLoadedRef.current = false;
+  }, [activeEpisode?.id, activeEpisode?.link, activeEpisode?.sourceLink]);
+
+  useEffect(() => {
+    if (
+      videoLoadedRef.current &&
+      !resumeAppliedRef.current &&
+      watchedDuration > 5 &&
+      videoPositionRef.current.position < 5
+    ) {
+      playerRef.current?.seek(watchedDuration);
+      resumeAppliedRef.current = true;
+    }
+  }, [videoPositionRef, watchedDuration]);
 
   // Memoized selected tracks
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<SelectedTrack>({
@@ -606,7 +632,7 @@ const Player = ({route}: Props): React.JSX.Element => {
   useEffect(() => {
     if (route.params?.primaryTitle && !route.params?.doNotTrack) {
       addItem({
-        id: activeEpisode.id || activeEpisode.sourceLink || activeEpisode.link,
+        id: getHistoryEpisodeId(activeEpisode) || activeEpisode.link,
         title: route.params.primaryTitle,
         poster:
           route.params.poster?.poster || route.params.poster?.background || '',
@@ -789,7 +815,11 @@ const Player = ({route}: Props): React.JSX.Element => {
       onProgress: handleProgress,
       onLoad: (e: any) => {
         handleVideoLoad(e?.naturalSize);
-        playerRef?.current?.seek(watchedDuration);
+        videoLoadedRef.current = true;
+        if (watchedDuration > 5) {
+          playerRef.current?.seek(watchedDuration);
+          resumeAppliedRef.current = true;
+        }
         playerRef?.current?.resume();
         setPlaybackRate(1.0);
       },

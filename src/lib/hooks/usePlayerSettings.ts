@@ -1,5 +1,6 @@
 import {useCallback, useRef, useState} from 'react';
 import {cacheStorage, mainStorage} from '../storage';
+import {getHistoryEpisodeId} from '../historyIdentity';
 
 interface UsePlayerProgressOptions {
   activeEpisode: any;
@@ -16,6 +17,7 @@ export const usePlayerProgress = ({
 }: UsePlayerProgressOptions) => {
   const videoPositionRef = useRef({position: 0, duration: 0});
   const lastSavedPositionRef = useRef(0);
+  const lastHistoryPositionRef = useRef(0);
 
   // Memoized progress handler
   const handleProgress = useCallback(
@@ -33,16 +35,18 @@ export const usePlayerProgress = ({
         routeParams?.linkIndex !== undefined &&
         !routeParams?.doNotTrack
       ) {
-        updatePlaybackInfo(
-          activeEpisode.id ||
-            activeEpisode.sourceLink ||
-            routeParams.episodeList[routeParams.linkIndex].link,
-          {
-            currentTime,
-            duration: seekableDuration,
-            playbackRate,
-          },
-        );
+        if (Math.abs(currentTime - lastHistoryPositionRef.current) >= 5) {
+          updatePlaybackInfo(
+            getHistoryEpisodeId(activeEpisode) ||
+              routeParams.episodeList[routeParams.linkIndex].link,
+            {
+              currentTime,
+              duration: seekableDuration,
+              playbackRate,
+            },
+          );
+          lastHistoryPositionRef.current = currentTime;
+        }
       }
 
       // Store progress data for watch history display

@@ -49,6 +49,37 @@ describe('Vega sync manifest', () => {
     expect(mergeSyncManifests([older, newer]).history.movie.progress).toBe(30);
   });
 
+  it('preserves resume progress when a newer event only opens the player', () => {
+    const progressed = manifest('mobile', {
+      history: {
+        episode: {
+          id: 'episode',
+          title: 'Show',
+          link: 'show-info',
+          progress: 900,
+          duration: 1800,
+          updatedAt: 10,
+        },
+      },
+    });
+    const opened = manifest('desktop', {
+      history: {
+        episode: {
+          id: 'episode',
+          title: 'Show',
+          link: 'show-info',
+          updatedAt: 20,
+        },
+      },
+    });
+
+    expect(mergeSyncManifests([progressed, opened]).history.episode).toEqual({
+      ...opened.history.episode,
+      progress: 900,
+      duration: 1800,
+    });
+  });
+
   it('merges watchlist items from different devices', () => {
     const merged = mergeSyncManifests([
       manifest('mobile', {

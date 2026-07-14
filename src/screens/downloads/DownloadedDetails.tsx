@@ -115,6 +115,7 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
         id: candidate.id,
         title: candidate.episodeName || candidate.title,
         link: candidate.filePath,
+        sourceLink: candidate.sourceLink,
       })),
       linkIndex: playableItems.findIndex(candidate => candidate.id === item.id),
       type: '',
