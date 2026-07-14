@@ -21,7 +21,7 @@ const ContinueWatching = () => {
   const {primary} = useThemeStore(state => state);
   const navigation =
     useNavigation<NativeStackNavigationProp<TabStackParamList>>();
-  const {history, removeItem} = useWatchHistoryStore(state => state);
+  const {history, removeItems} = useWatchHistoryStore(state => state);
   const [progressData, setProgressData] = useState<Record<string, number>>({});
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState<boolean>(false);
@@ -148,11 +148,7 @@ const ContinueWatching = () => {
   };
 
   const deleteSelectedItems = () => {
-    recentItems.forEach(item => {
-      if (selectedItems.has(item.link)) {
-        removeItem(item);
-      }
-    });
+    removeItems([...selectedItems]);
     setSelectedItems(new Set());
     setSelectionMode(false);
   };
@@ -182,7 +178,10 @@ const ContinueWatching = () => {
               {selectedItems.size} selected
             </Text>
             <TouchableOpacity
-              onPress={deleteSelectedItems}
+              onPress={event => {
+                event.stopPropagation();
+                deleteSelectedItems();
+              }}
               className=" rounded-full mr-2">
               <MaterialCommunityIcons
                 name="delete-outline"

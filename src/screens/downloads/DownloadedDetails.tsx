@@ -14,6 +14,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import {Dropdown} from 'react-native-element-dropdown';
 import type {DownloadsStackParamList, RootStackParamList} from '../../App';
+import SingleOptionField from '../../components/SingleOptionField';
 import {
   deleteDownloadOutput,
   downloadOutputExists,
@@ -55,10 +56,7 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
     [completed, route.params.groupId],
   );
   const seasons = useMemo(
-    () =>
-      group?.type === 'series'
-        ? [...new Set(group.items.map(getSeasonTitle))]
-        : [],
+    () => [...new Set(group?.items.map(getSeasonTitle) || [])],
     [group],
   );
   const seasonOptions = useMemo(
@@ -76,9 +74,6 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
   const items = useMemo(() => {
     if (!group) {
       return [];
-    }
-    if (group.type === 'movie') {
-      return group.items;
     }
     return sortDownloadedEpisodes(
       group.items.filter(item => getSeasonTitle(item) === selectedSeason),
@@ -117,6 +112,7 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
     );
     navigation.navigate('Player', {
       episodeList: playableItems.map(candidate => ({
+        id: candidate.id,
         title: candidate.episodeName || candidate.title,
         link: candidate.filePath,
       })),
@@ -191,11 +187,9 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
               {group.title}
             </Text>
             <Text className="mt-2 text-sm text-gray-300">
-              {group.type === 'series'
-                ? `${group.items.length} downloaded episode${
-                    group.items.length === 1 ? '' : 's'
-                  }`
-                : 'Downloaded movie'}
+              {`${group.items.length} download${
+                group.items.length === 1 ? '' : 's'
+              }`}
               {'  '}·{'  '}
               {formatDownloadBytes(totalBytes)}
             </Text>
@@ -214,54 +208,50 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
             </>
           ) : null}
 
-          {group.type === 'series' ? (
-            seasonOptions.length > 1 ? (
-              <Dropdown
-                selectedTextStyle={{
-                  color: primary,
-                  overflow: 'hidden',
-                  height: 20,
-                  fontWeight: 'bold',
-                }}
-                labelField="title"
-                valueField="title"
-                value={selectedSeason}
-                data={seasonOptions}
-                onChange={item => setSelectedSeason(item.title)}
-                style={{
-                  overflow: 'hidden',
-                  borderWidth: 1,
-                  borderColor: '#2f302f',
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  backgroundColor: 'black',
-                }}
-                containerStyle={{
-                  overflow: 'hidden',
-                  borderWidth: 1,
-                  borderColor: 'gray',
-                  borderRadius: 8,
-                  backgroundColor: 'black',
-                }}
-                renderItem={item => (
-                  <View
-                    className={`flex-row items-center justify-start border-b border-gray-500 bg-black px-3 py-2 ${
-                      selectedSeason === item.title ? 'bg-quaternary' : ''
-                    }`}>
-                    <Text className="text-white">{item.title}</Text>
-                  </View>
-                )}
-              />
-            ) : (
-              <Text className="px-2 text-lg font-semibold text-red-600">
-                {selectedSeason || 'Downloaded'}
-              </Text>
-            )
-          ) : null}
+          {seasonOptions.length > 1 ? (
+            <Dropdown
+              selectedTextStyle={{
+                color: primary,
+                overflow: 'hidden',
+                height: 20,
+                fontWeight: 'bold',
+              }}
+              labelField="title"
+              valueField="title"
+              value={selectedSeason}
+              data={seasonOptions}
+              onChange={item => setSelectedSeason(item.title)}
+              style={{
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: '#2f302f',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 8,
+                backgroundColor: 'black',
+              }}
+              containerStyle={{
+                overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: 'gray',
+                borderRadius: 8,
+                backgroundColor: 'black',
+              }}
+              renderItem={item => (
+                <View
+                  className={`flex-row items-center justify-start border-b border-gray-500 bg-black px-3 py-2 ${
+                    selectedSeason === item.title ? 'bg-quaternary' : ''
+                  }`}>
+                  <Text className="text-white">{item.title}</Text>
+                </View>
+              )}
+            />
+          ) : (
+            <SingleOptionField label={selectedSeason || 'Downloaded'} />
+          )}
 
           <Text className="mb-1 mt-4 text-lg font-semibold text-white">
-            {group.type === 'series' ? 'Downloaded episodes' : 'Ready to watch'}
+            Ready to watch
           </Text>
           {items.map((item, index) => (
             <View
@@ -275,7 +265,7 @@ const DownloadedDetails = ({navigation, route}: DownloadedDetailsProps) => {
                   {item.episodeName || item.title}
                 </Text>
                 <Text className="text-xs text-gray-300">
-                  {group.type === 'series' ? `E${index + 1} · ` : ''}
+                  {items.length > 1 ? `E${index + 1} · ` : ''}
                   {formatDownloadBytes(item.totalBytes)}
                 </Text>
               </TouchableOpacity>

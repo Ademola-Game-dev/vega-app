@@ -54,8 +54,10 @@ export interface Info {
 }
 // getEpisodeLinks
 export interface EpisodeLink {
+  id?: string;
   title: string;
   link: string;
+  sourceLink?: string;
 }
 
 export interface Link {

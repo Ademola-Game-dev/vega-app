@@ -97,7 +97,7 @@ const Player = ({route}: Props): React.JSX.Element => {
   const {primary} = useThemeStore(state => state);
   const {provider} = useContentStore();
   const navigation = useNavigation();
-  const {addItem, updatePlaybackInfo, updateItemWithInfo} =
+  const {history, addItem, updatePlaybackInfo, updateItemWithInfo} =
     useWatchHistoryStore();
 
   // Player ref
@@ -249,9 +249,22 @@ const Player = ({route}: Props): React.JSX.Element => {
 
   // Memoized watched duration
   const watchedDuration = useMemo(() => {
+    const historyKey =
+      activeEpisode?.id || activeEpisode?.sourceLink || activeEpisode?.link;
+    const syncedProgress = history.find(
+      item => item.id === historyKey,
+    )?.progress;
+    if (syncedProgress !== undefined) {
+      return syncedProgress;
+    }
     const cached = cacheStorage.getString(activeEpisode?.link);
     return cached ? JSON.parse(cached).position : 0;
-  }, [activeEpisode?.link]);
+  }, [
+    activeEpisode?.id,
+    activeEpisode?.link,
+    activeEpisode?.sourceLink,
+    history,
+  ]);
 
   // Memoized selected tracks
   const [selectedAudioTrack, setSelectedAudioTrack] = useState<SelectedTrack>({
@@ -269,6 +282,7 @@ const Player = ({route}: Props): React.JSX.Element => {
     });
 
   const [processedStreamUrl, setProcessedStreamUrl] = useState<string>('');
+  const [isResolvingStream, setIsResolvingStream] = useState(false);
   const progressIntervalRef = useRef<any>(null);
   const [torrentState, setTorrentState] = useState<string>('');
   const [torrentDownloaded, setTorrentDownloaded] = useState<number>(0);
@@ -321,8 +335,12 @@ const Player = ({route}: Props): React.JSX.Element => {
     const resolveStream = async () => {
       if (!selectedStream?.link) {
         setProcessedStreamUrl('');
+        setIsResolvingStream(false);
         return;
       }
+
+      setProcessedStreamUrl('');
+      setIsResolvingStream(true);
 
       const isTorrent =
         selectedStream.type === 'torrent' ||
@@ -355,8 +373,9 @@ const Player = ({route}: Props): React.JSX.Element => {
           }
           activeTorrentRef.current = infoHash;
 
-          if (progressIntervalRef.current)
+          if (progressIntervalRef.current) {
             clearInterval(progressIntervalRef.current);
+          }
           if (isMounted) {
             progressIntervalRef.current = setInterval(async () => {
               try {
@@ -372,20 +391,23 @@ const Player = ({route}: Props): React.JSX.Element => {
 
           if (isMounted) {
             const videoFileIndex = await findVideoFileIndex(infoHash);
-            await torrentManager.prepareVideoFile(infoHash, videoFileIndex);
-            if (!isMounted) {
-              return;
-            }
+            const preparation = torrentManager.prepareVideoFile(
+              infoHash,
+              videoFileIndex,
+            );
             const streamUrl = await torrentManager.getStreamUrl(
               infoHash,
               videoFileIndex,
             );
             console.log('Torrent stream URL:', streamUrl);
             setProcessedStreamUrl(streamUrl);
+            setIsResolvingStream(false);
+            await preparation;
           }
         } catch (error) {
           console.error('Failed to start torrent stream:', error);
           if (isMounted) {
+            setIsResolvingStream(false);
             if (!switchToNextStream()) {
               ToastAndroid.show('Failed to load torrent', ToastAndroid.SHORT);
             }
@@ -393,6 +415,7 @@ const Player = ({route}: Props): React.JSX.Element => {
         }
       } else {
         setProcessedStreamUrl(selectedStream.link);
+        setIsResolvingStream(false);
       }
     };
 
@@ -583,15 +606,13 @@ const Player = ({route}: Props): React.JSX.Element => {
   useEffect(() => {
     if (route.params?.primaryTitle && !route.params?.doNotTrack) {
       addItem({
-        id: route.params.infoUrl || activeEpisode.link,
+        id: activeEpisode.id || activeEpisode.sourceLink || activeEpisode.link,
         title: route.params.primaryTitle,
         poster:
           route.params.poster?.poster || route.params.poster?.background || '',
         link: route.params.infoUrl || '',
         provider: route.params?.providerValue || provider.value,
         lastPlayed: Date.now(),
-        duration: 0,
-        currentTime: 0,
         playbackRate: 1,
         episodeTitle: route.params?.secondaryTitle,
       });
@@ -667,7 +688,7 @@ const Player = ({route}: Props): React.JSX.Element => {
   // Animation effects
   useEffect(() => {
     // Loading animations
-    if (streamLoading) {
+    if (streamLoading || isResolvingStream) {
       loadingOpacity.value = withTiming(1, {duration: 800});
       loadingScale.value = withTiming(1, {duration: 800});
       loadingRotation.value = withRepeat(
@@ -680,7 +701,7 @@ const Player = ({route}: Props): React.JSX.Element => {
         -1,
       );
     }
-  }, [streamLoading]);
+  }, [isResolvingStream, streamLoading]);
 
   useEffect(() => {
     // Lock button animations
@@ -904,7 +925,28 @@ const Player = ({route}: Props): React.JSX.Element => {
       <OrientationLocker orientation={LANDSCAPE} />
 
       {/* Video Player */}
-      <VideoPlayer {...videoPlayerProps} />
+      {processedStreamUrl ? (
+        <VideoPlayer {...videoPlayerProps} />
+      ) : (
+        <View className="flex-1 justify-center items-center">
+          <Animated.View style={[loadingContainerStyle]}>
+            <Animated.View style={[loadingIconStyle]}>
+              <MaterialIcons name="hourglass-empty" size={60} color="white" />
+            </Animated.View>
+          </Animated.View>
+          <TouchableOpacity
+            className="mt-6 flex-row items-center gap-2 px-4 py-2"
+            onPress={() => {
+              setActiveTab('server');
+              setShowSettings(true);
+            }}>
+            <MaterialIcons name="video-settings" size={24} color="white" />
+            <Text className="text-white text-sm capitalize opacity-80">
+              {selectedStream?.server || 'Change server'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Non-intrusive Torrent Status Overlay */}
       {selectedStream?.type === 'torrent' &&

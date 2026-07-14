@@ -71,18 +71,82 @@ describe('downloaded library grouping', () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0]).toMatchObject({
-      id: 'series:rick-and-morty',
+      id: 'media:rick-and-morty',
       title: 'Rick and Morty',
     });
     expect(groups[0].items).toHaveLength(2);
   });
 
-  it('keeps movies as independent library entries', () => {
+  it('groups misclassified movie episodes by their logical title', () => {
     const groups = groupCompletedDownloads([
-      createItem({id: 'Movie_direct_0', title: 'Movie', type: 'movie'}),
-      createItem({id: 'Movie_direct_1', title: 'Movie', type: 'movie'}),
+      createItem({
+        id: 'LIAR_GAME_direct_1',
+        title: 'LIAR GAME Episode-12',
+        showName: 'LIAR GAME',
+        seasonTitle: 'Season 1 - English',
+        episodeName: 'Episode-12',
+        type: 'movie',
+        imdbId: undefined,
+      }),
+      createItem({
+        id: 'LIAR_GAME_direct_0',
+        title: 'LIAR GAME Episode-11',
+        showName: 'LIAR GAME',
+        seasonTitle: 'Season 1 - English',
+        episodeName: 'Episode-11',
+        type: 'movie',
+        imdbId: undefined,
+      }),
     ]);
-    expect(groups).toHaveLength(2);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      id: 'media:liar-game',
+      title: 'LIAR GAME',
+    });
+    expect(groups[0].items.map(item => item.episodeName)).toEqual([
+      'Episode-11',
+      'Episode-12',
+    ]);
+  });
+
+  it('keeps quality and language variants inside the same title group', () => {
+    const groups = groupCompletedDownloads([
+      createItem({
+        id: 'Movie_direct_0',
+        title: 'Movie 1080p English',
+        showName: 'Movie',
+        seasonTitle: '1080p - English',
+        episodeName: 'English',
+        type: 'movie',
+      }),
+      createItem({
+        id: 'Movie_direct_1',
+        title: 'Movie 720p Hindi',
+        showName: 'Movie',
+        seasonTitle: '720p - Hindi',
+        episodeName: 'Hindi',
+        type: 'movie',
+      }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].items.map(item => item.seasonTitle).sort()).toEqual([
+      '1080p - English',
+      '720p - Hindi',
+    ]);
+  });
+
+  it('keeps unrelated movie titles in separate groups', () => {
+    const groups = groupCompletedDownloads([
+      createItem({id: 'Movie_A_direct_0', title: 'Movie A', type: 'movie'}),
+      createItem({id: 'Movie_B_direct_0', title: 'Movie B', type: 'movie'}),
+    ]);
+
+    expect(groups.map(group => group.title).sort()).toEqual([
+      'Movie A',
+      'Movie B',
+    ]);
   });
 
   it('sorts episodes using the stable download ID', () => {

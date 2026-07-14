@@ -12,6 +12,7 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
 
     companion object {
         private const val TAG = "TorrentModule"
+        private const val STREAM_STARTUP_BYTES = 8L * 1024L * 1024L
         private var sessionManager: SessionManager? = null
         private var streamServer: TorrentStreamServer? = null
         private val torrentHandles = mutableMapOf<String, TorrentHandle>()
@@ -120,7 +121,6 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
                                 Log.d(TAG, "Alert: AddTorrentAlert for $alertHash")
 
                                 try {
-                                    th.setFlags(TorrentFlags.SEQUENTIAL_DOWNLOAD, TorrentFlags.SEQUENTIAL_DOWNLOAD)
                                     torrentHandles[alertHash] = th
                                     torrentSavePaths[alertHash] = downloadDir
                                     if (th.status().hasMetadata()) {
@@ -321,34 +321,44 @@ class TorrentModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
                 }
                 
                 val fileOffset = fs.fileOffset(fileIndex)
-                val pieceLength = ti.pieceLength()
+                val fileSize = fs.fileSize(fileIndex)
+                val pieceLength = ti.pieceLength().toLong()
                 val startPiece = (fileOffset / pieceLength).toInt()
-                Log.d(TAG, "prepareVideoFile: fileOffset=$fileOffset, pieceLength=$pieceLength, startPiece=$startPiece")
-                
-                if (!th.havePiece(startPiece)) {
-                    Log.d(TAG, "prepareVideoFile: waiting for piece $startPiece...")
-                    th.piecePriority(startPiece, org.libtorrent4j.Priority.TOP_PRIORITY)
-                    th.setPieceDeadline(startPiece, 1000)
-                    
-                    var waitCount = 0
-                    // Wait up to 5 minutes for the first piece
-                    while (!th.havePiece(startPiece) && th.isValid && waitCount < 3000) {
-                        Thread.sleep(100)
-                        waitCount++
-                    }
-                    
-                    if (!th.isValid) {
-                        promise.reject("INVALID_HANDLE", "Torrent handle became invalid while waiting")
-                        return@Thread
-                    }
-                    
-                    if (!th.havePiece(startPiece)) {
-                        promise.reject("TIMEOUT", "Timed out waiting for first piece of video file")
-                        return@Thread
+                val startupEndOffset = fileOffset + minOf(fileSize, STREAM_STARTUP_BYTES) - 1L
+                val startupEndPiece = (startupEndOffset / pieceLength).toInt()
+
+                th.unsetFlags(TorrentFlags.SEQUENTIAL_DOWNLOAD)
+                val filePriorities = Priority.array(Priority.IGNORE, fs.numFiles())
+                filePriorities[fileIndex] = Priority.TOP_PRIORITY
+                th.prioritizeFiles(filePriorities)
+
+                for (pieceIndex in startPiece..startupEndPiece) {
+                    if (!th.havePiece(pieceIndex)) {
+                        th.piecePriority(pieceIndex, Priority.TOP_PRIORITY)
+                        th.setPieceDeadline(pieceIndex, 1000 + (pieceIndex - startPiece) * 250)
                     }
                 }
-                
-                promise.resolve(true)
+
+                Log.d(
+                    TAG,
+                    "prepareVideoFile: file=$fileIndex, pieces=$startPiece-$startupEndPiece, startupBytes=${minOf(fileSize, STREAM_STARTUP_BYTES)}"
+                )
+
+                var waitCount = 0
+                while (th.isValid && waitCount < 3000) {
+                    if (th.havePiece(startPiece)) {
+                        promise.resolve(true)
+                        return@Thread
+                    }
+                    Thread.sleep(100)
+                    waitCount++
+                }
+
+                if (!th.isValid) {
+                    promise.reject("INVALID_HANDLE", "Torrent handle became invalid while preparing video")
+                } else {
+                    promise.reject("TIMEOUT", "Timed out waiting for the first video piece")
+                }
             } catch (e: Exception) {
                 promise.reject("PREPARE_ERROR", e.message, e)
             }

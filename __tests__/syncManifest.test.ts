@@ -16,6 +16,7 @@ const manifest = (
   generatedAt: 1,
   downloads: {},
   history: {},
+  watchlist: {},
   tombstones: {},
   ...overrides,
 });
@@ -46,6 +47,90 @@ describe('Vega sync manifest', () => {
     });
 
     expect(mergeSyncManifests([older, newer]).history.movie.progress).toBe(30);
+  });
+
+  it('merges watchlist items from different devices', () => {
+    const merged = mergeSyncManifests([
+      manifest('mobile', {
+        watchlist: {
+          'mobile-link': {
+            title: 'Mobile title',
+            poster: 'mobile.jpg',
+            link: 'mobile-link',
+            provider: 'mobile-provider',
+            updatedAt: 10,
+          },
+        },
+      }),
+      manifest('desktop', {
+        watchlist: {
+          'desktop-link': {
+            title: 'Desktop title',
+            poster: 'desktop.jpg',
+            link: 'desktop-link',
+            provider: 'desktop-provider',
+            updatedAt: 20,
+          },
+        },
+      }),
+    ]);
+
+    expect(Object.keys(merged.watchlist).sort()).toEqual([
+      'desktop-link',
+      'mobile-link',
+    ]);
+  });
+
+  it('keeps a watchlist tombstone from resurrecting an older item', () => {
+    const added = manifest('mobile', {
+      watchlist: {
+        movie: {
+          title: 'Movie',
+          poster: 'movie.jpg',
+          link: 'movie',
+          provider: 'provider',
+          updatedAt: 10,
+        },
+      },
+    });
+    const removed = manifest('desktop', {
+      tombstones: {
+        [getTombstoneKey('watchlist', 'movie')]: {
+          kind: 'watchlist',
+          id: 'movie',
+          deletedAt: 20,
+        },
+      },
+    });
+
+    expect(mergeSyncManifests([added, removed]).watchlist).toEqual({});
+  });
+
+  it('allows a newer watchlist add to replace an older removal', () => {
+    const removed = manifest('mobile', {
+      tombstones: {
+        [getTombstoneKey('watchlist', 'movie')]: {
+          kind: 'watchlist',
+          id: 'movie',
+          deletedAt: 10,
+        },
+      },
+    });
+    const readded = manifest('desktop', {
+      watchlist: {
+        movie: {
+          title: 'Movie',
+          poster: 'movie.jpg',
+          link: 'movie',
+          provider: 'provider',
+          updatedAt: 20,
+        },
+      },
+    });
+
+    expect(mergeSyncManifests([removed, readded]).watchlist.movie).toEqual(
+      readded.watchlist.movie,
+    );
   });
 
   it('deduplicates different platform ids for the same episode', () => {
@@ -197,6 +282,16 @@ describe('Vega sync manifest', () => {
   it('ignores malformed or unsupported manifests', () => {
     expect(parseSyncManifest('{bad json')).toBeNull();
     expect(parseSyncManifest('{"schemaVersion":2}')).toBeNull();
+  });
+
+  it('accepts older manifests without a watchlist field', () => {
+    const legacyManifest = manifest('legacy');
+    delete legacyManifest.watchlist;
+
+    expect(parseSyncManifest(JSON.stringify(legacyManifest))).toEqual(
+      legacyManifest,
+    );
+    expect(mergeSyncManifests([legacyManifest]).watchlist).toEqual({});
   });
 
   it('recovers the first complete manifest from appended stale bytes', () => {

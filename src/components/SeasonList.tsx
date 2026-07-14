@@ -35,6 +35,7 @@ import {useEpisodes, useStreamData} from '../lib/hooks/useEpisodes';
 import useWatchHistoryStore from '../lib/zustand/watchHistrory';
 import useThemeStore from '../lib/zustand/themeStore';
 import SkeletonLoader from './Skeleton';
+import SingleOptionField from './SingleOptionField';
 import {
   createDesktopCompatibleFileName,
   createDirectDownloadId,
@@ -671,10 +672,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
                   ? metaTitle.slice(0, 30) + '... ' + item.title
                   : metaTitle + ' ' + item.title
               }
-              fileName={createDesktopCompatibleFileName(
-                item?.type === 'series' ? item.title : metaTitle,
-                item?.type === 'series' ? 'series' : 'movie',
-              )}
+              fileName={createDesktopCompatibleFileName(item.title, 'series')}
             />
           </View>
         </View>
@@ -840,9 +838,7 @@ const SeasonList: React.FC<SeasonListProps> = ({
           )}
         />
       ) : (
-        <Text className="text-red-600 text-lg font-semibold px-2">
-          {LinkList[0]?.title || 'Unknown Season'}
-        </Text>
+        <SingleOptionField label={LinkList[0]?.title || 'Unknown Season'} />
       )}
 
       {/* Search and Sort Controls */}

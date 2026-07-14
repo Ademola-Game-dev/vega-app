@@ -55,6 +55,7 @@ import useDownloadsStore from './lib/zustand/downloadsStore';
 import useNavigationPreferencesStore from './lib/zustand/navigationPreferencesStore';
 import {
   initializeSyncService,
+  publishSyncManifest,
   syncFromSharedFolder,
 } from './lib/sync/syncService';
 // Lazy-load Firebase modules so app runs without google-services files
@@ -217,6 +218,10 @@ const App = () => {
       if (state === 'active') {
         syncFromSharedFolder().catch(error =>
           console.warn('[VegaSync] Foreground sync failed:', error),
+        );
+      } else {
+        publishSyncManifest().catch(error =>
+          console.warn('[VegaSync] Background publish failed:', error),
         );
       }
     });

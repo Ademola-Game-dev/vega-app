@@ -84,9 +84,12 @@ export class WatchHistoryStorage {
   /**
    * Remove an item from watch history
    */
-  removeFromWatchHistory(id: string): void {
+  removeFromWatchHistory(identity: string | string[]): void {
     const history = this.getWatchHistory();
-    const filteredHistory = history.filter(item => item.id !== id);
+    const identities = new Set(Array.isArray(identity) ? identity : [identity]);
+    const filteredHistory = history.filter(
+      item => !identities.has(item.id) && !identities.has(item.link),
+    );
     mainStorage.setArray(WatchHistoryKeys.WATCH_HISTORY, filteredHistory);
   }
 

@@ -15,6 +15,7 @@ export interface WatchListItem {
   poster: string;
   link: string;
   provider: string;
+  updatedAt?: number;
 }
 
 /**
@@ -38,7 +39,7 @@ export class WatchListStorage {
     const newWatchList = watchList.filter(i => i.link !== item.link);
 
     // Add the new item to the end
-    newWatchList.push(item);
+    newWatchList.push({...item, updatedAt: Date.now()});
 
     // Save the updated watchlist
     mainStorage.setArray(WatchListKeys.WATCH_LIST, newWatchList);

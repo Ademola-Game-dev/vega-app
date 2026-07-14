@@ -11,6 +11,7 @@ export interface History {
   clearHistory: () => void;
   updateItemWithInfo: (link: string, infoData: any) => void;
   removeItem: (item: WatchHistoryItem) => void;
+  removeItems: (links: string[]) => void;
 }
 
 // Helper function to convert between our storage format and zustand format
@@ -30,17 +31,22 @@ const useWatchHistoryStore = create<History>(set => ({
     try {
       // Format item for our storage service
       const storageItem: WatchHistoryItem = {
-        id: item.link || item.title,
+        id: item.id || item.link || item.title,
         title: item.title,
         poster: item.poster,
         provider: item.provider,
         link: item.link,
         timestamp: Date.now(),
-        duration: item.duration,
-        progress: item.currentTime,
         episodeTitle: item.episodeTitle,
         cachedInfoData: item.cachedInfoData,
       };
+
+      if (item.duration !== undefined) {
+        storageItem.duration = item.duration;
+      }
+      if (item.currentTime !== undefined) {
+        storageItem.progress = item.currentTime;
+      }
 
       // Add to storage
       watchHistoryStorage.addToWatchHistory(storageItem);
@@ -57,7 +63,9 @@ const useWatchHistoryStore = create<History>(set => ({
   updatePlaybackInfo: (link, playbackInfo) => {
     try {
       const history = watchHistoryStorage.getWatchHistory();
-      const existingItem = history.find(item => item.link === link);
+      const existingItem = history.find(
+        item => item.id === link || item.link === link,
+      );
 
       if (existingItem) {
         const updatedItem = {
@@ -80,6 +88,13 @@ const useWatchHistoryStore = create<History>(set => ({
 
   removeItem: item => {
     watchHistoryStorage.removeFromWatchHistory(item.link);
+    set({
+      history: convertStorageToZustand(watchHistoryStorage.getWatchHistory()),
+    });
+  },
+
+  removeItems: links => {
+    watchHistoryStorage.removeFromWatchHistory(links);
     set({
       history: convertStorageToZustand(watchHistoryStorage.getWatchHistory()),
     });

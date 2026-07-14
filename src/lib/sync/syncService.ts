@@ -5,9 +5,15 @@ import {
   watchHistoryStorage,
   type WatchHistoryItem,
 } from '../storage/WatchHistoryStorage';
+import {
+  WatchListKeys,
+  watchListStorage,
+  type WatchListItem,
+} from '../storage/WatchListStorage';
 import {mainStorage} from '../storage/StorageService';
 import useDownloadsStore, {type DownloadItem} from '../zustand/downloadsStore';
 import useWatchHistoryStore from '../zustand/watchHistrory';
+import useWatchListStore from '../zustand/watchListStore';
 import {getSafEntryName, isSafDownloadLocation} from '../downloadLocation';
 import {
   getTombstoneKey,
@@ -17,6 +23,7 @@ import {
   type SyncTombstone,
   type SyncedDownload,
   type SyncedHistory,
+  type SyncedWatchListItem,
   type VegaSyncManifest,
 } from './manifest';
 import {
@@ -36,6 +43,7 @@ let publishTimer: ReturnType<typeof setTimeout> | undefined;
 let syncRequest: Promise<void> | undefined;
 let previousDownloads: Record<string, DownloadItem> = {};
 let previousHistory: WatchHistoryItem[] = [];
+let previousWatchList: WatchListItem[] = [];
 
 const getDeviceId = () => {
   const existing = mainStorage.getString(DEVICE_ID_KEY);
@@ -105,6 +113,11 @@ const toSyncedHistory = (item: WatchHistoryItem): SyncedHistory => ({
   updatedAt: item.timestamp || Date.now(),
 });
 
+const toSyncedWatchListItem = (item: WatchListItem): SyncedWatchListItem => ({
+  ...item,
+  updatedAt: item.updatedAt || 0,
+});
+
 const buildManifest = (): VegaSyncManifest => {
   const revision = (mainStorage.getNumber(REVISION_KEY) || 0) + 1;
   mainStorage.setNumber(REVISION_KEY, revision);
@@ -118,6 +131,11 @@ const buildManifest = (): VegaSyncManifest => {
       .getWatchHistory()
       .map(item => [item.id || item.link, toSyncedHistory(item)]),
   );
+  const watchlist = Object.fromEntries(
+    watchListStorage
+      .getWatchList()
+      .map(item => [item.link, toSyncedWatchListItem(item)]),
+  );
   return {
     schemaVersion: VEGA_SYNC_SCHEMA_VERSION,
     deviceId: getDeviceId(),
@@ -125,6 +143,7 @@ const buildManifest = (): VegaSyncManifest => {
     generatedAt: Date.now(),
     downloads,
     history,
+    watchlist,
     tombstones: getTombstones(),
   };
 };
@@ -138,13 +157,11 @@ export const publishSyncManifest = async (): Promise<void> => {
 };
 
 const schedulePublish = () => {
-  if (applyingRemoteState) {
+  if (applyingRemoteState || publishTimer) {
     return;
   }
-  if (publishTimer) {
-    clearTimeout(publishTimer);
-  }
   publishTimer = setTimeout(() => {
+    publishTimer = undefined;
     publishSyncManifest().catch(error =>
       console.warn('[VegaSync] Failed to publish manifest:', error),
     );
@@ -222,6 +239,16 @@ const applyRemoteHistory = (history: Record<string, SyncedHistory>) => {
   });
 };
 
+const applyRemoteWatchList = (
+  watchlist: Record<string, SyncedWatchListItem>,
+) => {
+  const items = Object.values(watchlist).sort(
+    (a, b) => a.updatedAt - b.updatedAt,
+  );
+  mainStorage.setArray(WatchListKeys.WATCH_LIST, items);
+  useWatchListStore.setState({watchList: items});
+};
+
 const applyTombstones = (tombstones: Record<string, SyncTombstone>) => {
   const store = useDownloadsStore.getState();
   let history = watchHistoryStorage.getWatchHistory();
@@ -237,7 +264,7 @@ const applyTombstones = (tombstones: Record<string, SyncTombstone>) => {
           store.removeDownload(item.id);
         }
       }
-    } else {
+    } else if (tombstone.kind === 'history') {
       history = history.filter(
         item =>
           (item.id || item.link) !== tombstone.id ||
@@ -262,11 +289,13 @@ const runSharedFolderSync = async (): Promise<void> => {
     applyTombstones(merged.tombstones);
     await applyRemoteDownloads(merged.downloads);
     applyRemoteHistory(merged.history);
+    applyRemoteWatchList(merged.watchlist);
   } finally {
     applyingRemoteState = false;
   }
   previousDownloads = useDownloadsStore.getState().downloads;
   previousHistory = watchHistoryStorage.getWatchHistory();
+  previousWatchList = watchListStorage.getWatchList();
   await publishSyncManifest();
 };
 
@@ -284,6 +313,7 @@ export const initializeSyncService = async (): Promise<void> => {
     initialized = true;
     previousDownloads = useDownloadsStore.getState().downloads;
     previousHistory = watchHistoryStorage.getWatchHistory();
+    previousWatchList = watchListStorage.getWatchList();
     useDownloadsStore.subscribe(state => {
       if (applyingRemoteState) {
         previousDownloads = state.downloads;
@@ -316,6 +346,20 @@ export const initializeSyncService = async (): Promise<void> => {
         }
       }
       previousHistory = watchHistoryStorage.getWatchHistory();
+      schedulePublish();
+    });
+    useWatchListStore.subscribe(state => {
+      if (applyingRemoteState) {
+        previousWatchList = watchListStorage.getWatchList();
+        return;
+      }
+      const currentLinks = new Set(state.watchList.map(item => item.link));
+      for (const item of previousWatchList) {
+        if (!currentLinks.has(item.link)) {
+          addTombstone('watchlist', item.link);
+        }
+      }
+      previousWatchList = watchListStorage.getWatchList();
       schedulePublish();
     });
   }

@@ -125,22 +125,18 @@ class TorrentStreamServer : NanoHTTPD(0) {
         val mimeType = guessMimeType(filePath)
 
         val rangeHeader = session.headers["range"]
-        val start: Long
-        val end: Long
-
-        if (rangeHeader != null) {
-            val rangeValue = rangeHeader.replace("bytes=", "").trim()
-            val rangeParts = rangeValue.split("-")
-            start = rangeParts[0].toLongOrNull() ?: 0
-            end = if (rangeParts.size > 1 && rangeParts[1].isNotEmpty()) {
-                rangeParts[1].toLongOrNull() ?: (fileSize - 1)
-            } else {
-                fileSize - 1
+        val requestedRange = parseRange(rangeHeader, fileSize)
+        if (requestedRange == null && rangeHeader != null) {
+            return newFixedLengthResponse(
+                Response.Status.RANGE_NOT_SATISFIABLE,
+                MIME_PLAINTEXT,
+                "Invalid range"
+            ).apply {
+                addHeader("Content-Range", "bytes */$fileSize")
             }
-        } else {
-            start = 0
-            end = fileSize - 1
         }
+        val start = requestedRange?.first ?: 0L
+        val end = requestedRange?.last ?: (fileSize - 1L)
 
         val contentLength = end - start + 1
         val startPiece = ((fileOffset + start) / pieceLength).toInt()
@@ -180,18 +176,48 @@ class TorrentStreamServer : NanoHTTPD(0) {
         val inputStream = TorrentInputStream(raf, infoHash, fileOffset, pieceLength, start, contentLength)
 
         val response = newFixedLengthResponse(
-            Response.Status.PARTIAL_CONTENT,
+            if (requestedRange != null) Response.Status.PARTIAL_CONTENT else Response.Status.OK,
             mimeType,
             inputStream,
             contentLength
         )
-        response.addHeader("Content-Range", "bytes $start-$end/$fileSize")
+        if (requestedRange != null) {
+            response.addHeader("Content-Range", "bytes $start-$end/$fileSize")
+        }
         response.addHeader("Accept-Ranges", "bytes")
         response.addHeader("Content-Length", contentLength.toString())
         response.addHeader("Connection", "keep-alive")
 
         Log.d(TAG, "Response ready: 206, Content-Length=$contentLength, Content-Range=bytes $start-$end/$fileSize")
         return response
+    }
+
+    private fun parseRange(rangeHeader: String?, fileSize: Long): LongRange? {
+        if (rangeHeader == null) return null
+        if (!rangeHeader.startsWith("bytes=") || fileSize <= 0L) return null
+
+        val value = rangeHeader.removePrefix("bytes=").substringBefore(',').trim()
+        val separator = value.indexOf('-')
+        if (separator < 0) return null
+
+        val startValue = value.substring(0, separator).trim()
+        val endValue = value.substring(separator + 1).trim()
+
+        if (startValue.isEmpty()) {
+            val suffixLength = endValue.toLongOrNull()?.takeIf { it > 0L } ?: return null
+            val start = maxOf(0L, fileSize - suffixLength)
+            return start..(fileSize - 1L)
+        }
+
+        val start = startValue.toLongOrNull()?.takeIf { it >= 0L && it < fileSize }
+            ?: return null
+        val end = if (endValue.isEmpty()) {
+            fileSize - 1L
+        } else {
+            minOf(endValue.toLongOrNull() ?: return null, fileSize - 1L)
+        }
+        if (end < start) return null
+        return start..end
     }
 
     private inner class TorrentInputStream(

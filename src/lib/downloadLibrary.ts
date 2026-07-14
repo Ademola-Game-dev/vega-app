@@ -3,13 +3,12 @@ import type {DownloadItem} from './zustand/downloadsStore';
 export interface DownloadedMediaGroup {
   id: string;
   title: string;
-  type: 'movie' | 'series';
   poster?: string;
   items: DownloadItem[];
 }
 
-const getSeriesGroupId = (item: DownloadItem): string =>
-  `series:${(item.showName || item.title)
+const getMediaGroupId = (item: DownloadItem): string =>
+  `media:${(item.showName || item.title)
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -32,7 +31,12 @@ const getEpisodeNumber = (item: DownloadItem): number => {
   if (idMatch) {
     return Number(idMatch[1]);
   }
-  return item.legacy ? getLegacyEpisodeNumber(item) : 0;
+  const titleNumber = getLegacyEpisodeNumber(item);
+  if (titleNumber) {
+    return titleNumber;
+  }
+  const directMatch = item.id.match(/_direct_(\d+)$/);
+  return directMatch ? Number(directMatch[1]) + 1 : 0;
 };
 
 export const sortDownloadedEpisodes = (items: DownloadItem[]): DownloadItem[] =>
@@ -51,7 +55,7 @@ export const groupCompletedDownloads = (
   const groups = new Map<string, DownloadedMediaGroup>();
 
   items.forEach(item => {
-    const groupId = item.type === 'series' ? getSeriesGroupId(item) : item.id;
+    const groupId = getMediaGroupId(item);
     const existing = groups.get(groupId);
     if (existing) {
       existing.items.push(item);
@@ -59,8 +63,7 @@ export const groupCompletedDownloads = (
     }
     groups.set(groupId, {
       id: groupId,
-      title: item.type === 'series' ? item.showName || item.title : item.title,
-      type: item.type,
+      title: item.showName || item.title,
       poster: item.poster,
       items: [item],
     });
@@ -69,10 +72,7 @@ export const groupCompletedDownloads = (
   return [...groups.values()]
     .map(group => ({
       ...group,
-      items:
-        group.type === 'series'
-          ? sortDownloadedEpisodes(group.items)
-          : group.items,
+      items: sortDownloadedEpisodes(group.items),
     }))
     .sort((a, b) => {
       const aCompleted = Math.max(
