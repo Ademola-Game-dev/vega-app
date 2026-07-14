@@ -47,6 +47,7 @@ export interface Info {
   synopsis: string;
   imdbId: string;
   type: string;
+  webUrl?: string;
   tags?: string[];
   cast?: string[];
   rating?: string;

@@ -127,6 +127,8 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
     return meta?.name || info?.title;
   }, [meta?.name, info?.title]);
 
+  const webUrl = useMemo(() => info?.webUrl?.trim(), [info?.webUrl]);
+
   const posterImage = useMemo(() => {
     return (
       meta?.poster ||
@@ -424,27 +426,30 @@ export default function Info({route, navigation}: Props): React.JSX.Element {
                                 top: menuPosition.top,
                                 right: menuPosition.right,
                               }}>
-                              {/* open in web  */}
-                              <TouchableOpacity
-                                className="flex-row items-center gap-2"
-                                onPress={async () => {
-                                  setThreeDotsMenuOpen(false);
-                                  navigation.navigate('Webview', {
-                                    link: route.params.link,
-                                  });
-                                }}>
-                                <MaterialCommunityIcons
-                                  name="web"
-                                  size={21}
-                                  color="rgb(156 163 175)"
-                                />
-                                <Text className="text-white text-base">
-                                  Open in Web
-                                </Text>
-                              </TouchableOpacity>
+                              {webUrl ? (
+                                <TouchableOpacity
+                                  className="flex-row items-center gap-2"
+                                  onPress={() => {
+                                    setThreeDotsMenuOpen(false);
+                                    navigation.navigate('Webview', {
+                                      link: webUrl,
+                                    });
+                                  }}>
+                                  <MaterialCommunityIcons
+                                    name="web"
+                                    size={21}
+                                    color="rgb(156 163 175)"
+                                  />
+                                  <Text className="text-white text-base">
+                                    Open in Web
+                                  </Text>
+                                </TouchableOpacity>
+                              ) : null}
                               {/* search */}
                               <TouchableOpacity
-                                className="flex-row items-center gap-2 mt-1"
+                                className={`flex-row items-center gap-2 ${
+                                  webUrl ? 'mt-1' : ''
+                                }`}
                                 onPress={async () => {
                                   setThreeDotsMenuOpen(false);
                                   //@ts-ignore
